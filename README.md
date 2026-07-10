@@ -63,26 +63,72 @@ There is no separate API server, no ORM, no migration tool, and no session store
 
 ## Quickstart: running it locally
 
-Prerequisites: Node 20+, npm, a free [Convex account](https://dashboard.convex.dev).
+Never done this before? Follow the steps exactly and you'll have the app running in about 10 minutes. If you're experienced, the short version is: Node 20+, `git clone`, `npm install`, `npm run setup`, `npm run dev` - skip ahead.
+
+### Step 0: Install the tools (one-time)
+
+You need two things on your computer:
+
+1. **Node.js** (version 20 or newer) - this is what runs the app. Download the installer from [nodejs.org](https://nodejs.org) (pick the "LTS" button) and click through it. This also installs `npm`, the command that fetches the app's dependencies.
+2. **Git** - this is what downloads the code. Download it from [git-scm.com/downloads](https://git-scm.com/downloads) and click through the installer (the default options are fine).
+
+You'll also need a **free Convex account** - Convex hosts the app's database and backend. Sign up at [convex.dev](https://www.convex.dev) (you can use your GitHub or Google account). You don't need to do anything in the dashboard yet; the setup step below connects to it automatically.
+
+### Step 1: Open a terminal
+
+The terminal is where you'll type the commands below.
+
+- **Windows:** press the Start key, type `powershell`, and press Enter.
+- **Mac:** press Cmd+Space, type `terminal`, and press Enter.
+
+### Step 2: Download the code
+
+First decide where you want the project to live - for example a `dev` folder in your home directory. In the terminal, type these commands one at a time, pressing Enter after each:
 
 ```bash
+mkdir dev
+cd dev
 git clone https://github.com/martincrumlish/aic26codebase.git my-app
 cd my-app
+```
+
+What each one does: `mkdir dev` creates the folder (skip it if you already have one), `cd dev` moves into it, `git clone ... my-app` downloads the code into a new folder called `my-app` (name it whatever you like), and `cd my-app` moves you into the project. Every command from here on is typed from inside this folder.
+
+### Step 3: Install the dependencies
+
+```bash
 npm install
+```
+
+This downloads the libraries the app is built on. It takes a minute and prints a lot of text - that's normal. Warnings are fine; you only have a problem if it ends with `npm error`.
+
+### Step 4: Run the setup
+
+```bash
 npm run setup
+```
+
+This is one guided script that wires everything up. It will:
+
+1. **Connect to Convex** - a browser window opens asking you to log in to your Convex account (first time only), then it asks you to create a project: accept the suggested name or type your own, and press Enter. This creates your personal backend and saves its address to a local file (`.env.local`).
+2. **Generate the security keys** the login system needs - automatic, nothing to do.
+3. **Ask for your email address** - type the email you want for the admin account and press Enter.
+4. **Create your admin account** and print an **activation link** that looks like `http://localhost:3000/activate/a90ba35f-...`. Keep the terminal open - you'll click that link in a moment.
+
+If anything fails, you can safely run `npm run setup` again - it picks up where it left off.
+
+### Step 5: Start the app and activate your account
+
+```bash
 npm run dev
 ```
 
-`npm run setup` walks you through everything interactively:
+This starts the app on your computer and keeps running (leave the terminal open; press Ctrl+C when you want to stop it). Now open the activation link from step 4 in your browser, set a password, and sign in.
 
-1. **Provisions a Convex dev deployment** on your account (opens a login on first use) and writes its URL to `.env.local` (gitignored).
-2. **Generates the JWT keypair** Convex Auth needs, stored as env vars on the deployment.
-3. **Sets `SITE_URL`** and asks for **your email** for the admin (operator) account.
-4. **Seeds the operator** and prints your personal activation link.
+You're the **operator** (the admin). An **Admin** item appears in the sidebar - from there you can generate signup links, add users directly, and see the provisioning-webhook settings. That's the whole loop; everything else (email, AI, webhooks) is optional and off until you configure it.
 
-Then run `npm run dev`, open the printed `http://localhost:3000/activate/<token>` link, set a password, and you're signed in as the operator. **Admin** appears in the sidebar - from there you can generate invite links, add users directly, and see the provisioning webhook config.
-
-The script is safe to re-run (every step is idempotent). If you prefer to do it by hand, the equivalent manual steps are:
+<details>
+<summary>Prefer to run the setup steps by hand instead of <code>npm run setup</code>?</summary>
 
 ```bash
 npx convex dev --once                                # create deployment, write .env.local
@@ -92,7 +138,7 @@ npx convex env set OPERATOR_EMAIL you@example.com
 npx convex run seed:bootstrapOperator                # prints your activationToken
 ```
 
-That's the whole loop. Everything else (email, AI, webhooks) is optional and off until you configure it.
+</details>
 
 ---
 
