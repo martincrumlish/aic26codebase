@@ -114,7 +114,7 @@ Users also carry `status: "active" | "revoked"`. Revoking flips a switch that lo
 
 There is **no anonymous open signup** — every path to an account goes through a token or an operator, so you always control who gets in and as what role:
 
-1. **Signup link (`/join/<token>`)** — the operator generates a signup token in `/admin` (optionally locked to an email). The visitor sets email + password; `authGate` only lets the signup through if the token validates. Tokens carry `maxUses` and a TTL, so the same mechanism covers both **one-off invites** (single-use, the admin UI's default) and **standing signup links** — e.g. one multi-use link per plan behind your checkout's thank-you page (`createSignupToken` accepts `maxUses` and `ttlDays`).
+1. **Signup link (`/join/<token>`)** — the operator generates a signup link in `/admin` (optionally locked to an email). The visitor sets email + password; `authGate` only lets the signup through if the token validates. Links are **standing by default — no expiry, no use limit** — so one link can serve as the signup URL for a whole plan (e.g. behind your checkout's thank-you page). You rotate a link whenever you want: revoke it in the admin's Signup-links list and generate a fresh one. For one-off or time-boxed invites, `createSignupToken` also accepts `maxUses` and `ttlDays`.
 2. **Activation (`/activate/<token>`)** — for accounts that already exist as rows (seeded operator, webhook-provisioned users, admin "add user"). The flow consumes the activation token, then sets the password against the pre-seeded row.
 3. **Sign-in (`/signin`)** — plain email + password.
 4. **Reset (`/reset`)** — magic-link via Resend (requires `AUTH_RESEND_KEY`; the page explains itself if email isn't configured).
@@ -127,7 +127,8 @@ The gate itself is `convex/authGate.ts`, wired into Convex Auth's `createOrUpdat
 
 - **Stats cards** — creators, members, active invite tokens.
 - **Creators table** — revoke (soft, reversible) or delete (hard, typed-confirmation). Delete cascades through all Convex Auth records (accounts, sessions, refresh tokens, verification codes) *and* app-owned tables — see [conventions](#project-conventions).
-- **Generate creator link** — creates a single-use, 7-day signup token and gives you a copyable `/join/…` URL. If email is configured, a checkbox appears to send the invite directly to the entered address.
+- **Generate creator link** — creates a standing signup link (no expiry, unlimited signups) and gives you a copyable `/join/…` URL. If email is configured, a checkbox appears to send the invite directly to the entered address.
+- **Signup links list** — every active link with its signup count, copy button, and **Revoke**. Rotation = revoke the old link, generate a new one.
 - **Add user account** — creates an account with a password immediately (no invite dance) via a pre-seed + `createAccount` action.
 - **Provisioning webhook panel** — shows the endpoint URL and whether the signing secret is set; records secret rotations.
 
@@ -202,7 +203,7 @@ On GitHub, click **Use this template** (or `git clone` + delete `.git` + `git in
 - Add it to the **delete cascade** in `convex/operator.ts` → `deleteUserAccount` (section 1, before the auth records), including freeing any `ctx.storage` blobs it references. There's a `userApiKeys` example right there to copy.
 
 **6. Decide your provisioning story.**
-- Manual: operator generates signup links from `/admin` — single-use invites or standing per-plan links. Works out of the box.
+- Manual: operator generates standing signup links from `/admin` — e.g. one per plan — and rotates them at will. Works out of the box.
 - Automated: point your payment platform's webhook at `/provision` with the shared secret.
 
 **7. Configure optional services** as you need them: Resend (email), OpenRouter (AI), each a single env var away — see [reference](#environment-variable-reference).

@@ -112,9 +112,11 @@ export const createSignupToken = mutation({
       targetRole: args.targetRole,
       creatorScopeId: args.creatorScopeId,
       email: args.email?.toLowerCase().trim(),
-      maxUses: args.maxUses ?? 1,
+      // Standing links by default: no expiry, no use limit. Pass maxUses
+      // and/or ttlDays for one-off or time-boxed invites.
+      maxUses: args.maxUses,
       usedCount: 0,
-      expiresAt: now + 1000 * 60 * 60 * 24 * (args.ttlDays ?? 7),
+      expiresAt: args.ttlDays !== undefined ? now + 1000 * 60 * 60 * 24 * args.ttlDays : undefined,
       revoked: false,
       purpose: "signup",
       createdAt: now,
@@ -142,8 +144,8 @@ export const validateToken = query({
       .unique();
     if (!tok) return { valid: false, reason: "Unknown link." };
     if (tok.revoked) return { valid: false, reason: "This link was revoked." };
-    if (tok.expiresAt <= Date.now()) return { valid: false, reason: "This link has expired." };
-    if (tok.usedCount >= tok.maxUses) return { valid: false, reason: "This link has already been used." };
+    if (tok.expiresAt !== undefined && tok.expiresAt <= Date.now()) return { valid: false, reason: "This link has expired." };
+    if (tok.maxUses !== undefined && tok.usedCount >= tok.maxUses) return { valid: false, reason: "This link has already been used." };
     return {
       valid: true,
       purpose: tok.purpose,
@@ -170,8 +172,8 @@ export const consumeActivationToken = mutation({
       !tok ||
       tok.purpose !== "activation" ||
       tok.revoked ||
-      tok.expiresAt <= now ||
-      tok.usedCount >= tok.maxUses
+      (tok.expiresAt !== undefined && tok.expiresAt <= now) ||
+      (tok.maxUses !== undefined && tok.usedCount >= tok.maxUses)
     ) {
       throw new ConvexError("This activation link is no longer valid.");
     }

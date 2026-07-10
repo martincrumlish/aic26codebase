@@ -39,26 +39,77 @@ export const listCreators = query({
   },
 });
 
+// Standing signup links: no expiry, no use limit. Links stay live until the
+// operator rotates them (revokeSignupToken + generate a fresh one).
 export const generateCreatorToken = mutation({
-  args: { email: v.optional(v.string()), ttlDays: v.optional(v.number()) },
+  args: { email: v.optional(v.string()) },
   returns: v.object({ token: v.string() }),
   handler: async (ctx, args) => {
     const operator = await requireOperator(ctx);
     const token = crypto.randomUUID();
-    const now = Date.now();
     await ctx.db.insert("provisioningTokens", {
       token,
       issuerId: operator._id,
       targetRole: "creator",
       email: args.email?.toLowerCase().trim(),
-      maxUses: 1,
       usedCount: 0,
-      expiresAt: now + 1000 * 60 * 60 * 24 * (args.ttlDays ?? 7),
       revoked: false,
       purpose: "signup",
-      createdAt: now,
+      createdAt: Date.now(),
     });
     return { token };
+  },
+});
+
+export const listSignupTokens = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("provisioningTokens"),
+      token: v.string(),
+      email: v.optional(v.string()),
+      targetRole: v.union(
+        v.literal("operator"),
+        v.literal("creator"),
+        v.literal("member"),
+      ),
+      usedCount: v.number(),
+      createdAt: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    await requireOperator(ctx);
+    // Bounded page: tokens are operator-issued (small table), same cap as platformStats.
+    const tokens = await ctx.db.query("provisioningTokens").order("desc").take(1000);
+    const now = Date.now();
+    return tokens
+      .filter(
+        (tk) =>
+          tk.purpose === "signup" &&
+          !tk.revoked &&
+          (tk.expiresAt === undefined || tk.expiresAt > now) &&
+          (tk.maxUses === undefined || tk.usedCount < tk.maxUses),
+      )
+      .map((tk) => ({
+        _id: tk._id,
+        token: tk.token,
+        email: tk.email,
+        targetRole: tk.targetRole,
+        usedCount: tk.usedCount,
+        createdAt: tk.createdAt,
+      }));
+  },
+});
+
+export const revokeSignupToken = mutation({
+  args: { tokenId: v.id("provisioningTokens") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireOperator(ctx);
+    const tok = await ctx.db.get(args.tokenId);
+    if (!tok) throw new ConvexError("Link not found.");
+    await ctx.db.patch(args.tokenId, { revoked: true });
+    return null;
   },
 });
 
@@ -144,7 +195,10 @@ export const platformStats = query({
     // table is admin-issued (small). 1000 caps the read without an extra index.
     const tokens = await ctx.db.query("provisioningTokens").take(1000);
     const activeTokens = tokens.filter(
-      (tk) => !tk.revoked && tk.expiresAt > now && tk.usedCount < tk.maxUses,
+      (tk) =>
+        !tk.revoked &&
+        (tk.expiresAt === undefined || tk.expiresAt > now) &&
+        (tk.maxUses === undefined || tk.usedCount < tk.maxUses),
     ).length;
     return { creators, members, activeTokens };
   },

@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { AddUserDialog } from "@/components/admin/AddUserDialog";
 import { GenerateCreatorLinkDialog } from "@/components/admin/GenerateCreatorLinkDialog";
 import { CreatorsTable } from "@/components/admin/CreatorsTable";
+import { SignupLinksCard } from "@/components/admin/SignupLinksCard";
 import { WebhookCard } from "@/components/admin/WebhookCard";
 import { StatsCards } from "@/components/admin/StatsCards";
 
@@ -48,6 +49,10 @@ export default function AdminPage() {
         </div>
       </div>
       <StatsCards />
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">Signup links</h2>
+        <SignupLinksCard />
+      </section>
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Creators</h2>
         <CreatorsTable />

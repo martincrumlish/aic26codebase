@@ -43,9 +43,10 @@ export default defineSchema({
     ),
     creatorScopeId: v.optional(v.id("users")),
     email: v.optional(v.string()),
-    maxUses: v.number(),
+    maxUses: v.optional(v.number()), // absent = unlimited uses (standing link)
     usedCount: v.number(),
-    expiresAt: v.number(),
+    expiresAt: v.optional(v.number()), // absent = never expires; rotate manually
+
     revoked: v.boolean(),
     purpose: v.union(v.literal("signup"), v.literal("activation")),
     createdAt: v.number(),

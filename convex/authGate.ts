@@ -65,8 +65,8 @@ export default async function createOrUpdateUser(
       tok &&
       tok.purpose === "signup" &&
       !tok.revoked &&
-      tok.expiresAt > now &&
-      tok.usedCount < tok.maxUses &&
+      (tok.expiresAt === undefined || tok.expiresAt > now) &&
+      (tok.maxUses === undefined || tok.usedCount < tok.maxUses) &&
       (!tok.email || tok.email.toLowerCase().trim() === email)
     ) {
       const userId = await ctx.db.insert("users", {
