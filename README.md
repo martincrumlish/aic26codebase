@@ -170,11 +170,11 @@ To keep one admin from locking out another, an admin can't revoke, delete, or se
 There is **no anonymous open signup** - every account starts with a signup link, a webhook, or an admin, so you always control who gets in:
 
 1. **Signup link (`/join/<token>`).** An admin generates one in `/admin` (optionally locked to one email address). The visitor picks an email and password; `authGate` only lets the signup through if the link is valid. Links are **standing by default - no expiry, no use limit** - so one link can be the signup URL for a whole plan (for example, behind your checkout's thank-you page). Rotate a link whenever you like: revoke it in the Signup links list and generate a fresh one. For a one-off or time-limited invite, `admin.createSignupLink` also accepts `maxUses` and `ttlDays`.
-2. **Activation (`/activate/<token>`).** For accounts that were created for someone (the first admin, or a webhook purchase). The person follows their activation link and sets a password.
+2. **Activation (`/activate/<token>`).** For accounts that were created for someone (the first admin, or a webhook purchase). The person follows their activation link and sets a password. The link is the proof that the account is theirs: knowing the email alone is never enough to claim a pre-created account, and each link works once.
 3. **Sign-in (`/signin`).** Email + password.
 4. **Password reset (`/reset`).** Needs email to be set up. The user enters their email, receives an 8-digit code (valid 15 minutes), and sets a new password. The page never reveals whether an email has an account. Without email configured, the page says so and tells the user to ask an admin, who can use **Set password** in the users table.
 
-`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: revoked users are rejected; existing accounts sign in; new signups need a valid link or a pre-created account; anything else **fails closed**.
+`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: existing accounts continue (revoked ones are rejected); a pre-created account is claimed only with its own activation token; a brand-new account needs a valid signup link; anything else **fails closed**.
 
 ### The admin console
 
@@ -269,7 +269,8 @@ Working with an AI coding assistant? `AGENTS.md` (also read by Claude Code via `
 These are the rules the codebase follows - future code (and AI assistants) should too. The same list is in `AGENTS.md`.
 
 - **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests sit next to their module (`convex/foo.test.ts`), component tests next to their component.
-- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the three that signed-out pages need: `provisioning.validateToken`, `provisioning.consumeActivationToken`, and `passwordReset.available`.
+- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the two that signed-out pages need: `provisioning.validateToken` and `passwordReset.available`.
+- **Never link a sign-up to an existing account by email alone.** A pre-created account can only be claimed with its own activation token, which `convex/authGate.ts` checks and uses up. Any new way of pre-creating accounts must issue a token and present it the same way (see `admin.createUserAccount`).
 - **Write-only secrets.** Sensitive values (API keys, passwords) never reach the browser. Public queries return derived facts only (`last4`, booleans); raw values go through `internal*` functions.
 - **Cascade deletes.** New user-owned tables must be added to `deleteUserAccount` in `convex/admin.ts`. Deleting a user should leave nothing behind.
 - **Indexes, not scans.** Convex queries use `.withIndex(...)`; an unbounded `.collect()` on a table that can grow is a bug.

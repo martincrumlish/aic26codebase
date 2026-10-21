@@ -1,7 +1,7 @@
 // components/auth/ActivateForm.tsx
 "use client";
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 export function ActivateForm({ token }: { token: string }) {
   const { signIn } = useAuthActions();
   const result = useQuery(api.provisioning.validateToken, { token });
-  const consume = useMutation(api.provisioning.consumeActivationToken);
   const [submitting, setSubmitting] = useState(false);
 
   if (result === undefined) {
@@ -26,13 +25,12 @@ export function ActivateForm({ token }: { token: string }) {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const email = (fd.get("email") as string).toLowerCase().trim();
+    // The activation token is the proof that this account is yours: the server
+    // checks it and uses it up while creating your password (convex/authGate.ts).
+    fd.set("flow", "signUp");
+    fd.set("token", token);
     setSubmitting(true);
     try {
-      // 1. Consume the activation token (ensures pre-seeded users row, marks used).
-      await consume({ token, email });
-      // 2. Set the password via the gated Password signUp (row now exists → accepted).
-      fd.set("flow", "signUp");
       await signIn("password", fd);
       window.location.href = "/dashboard";
     } catch (err) {
@@ -47,11 +45,19 @@ export function ActivateForm({ token }: { token: string }) {
       <p className="text-sm text-muted-foreground">Set a password to activate your account.</p>
       <div className="space-y-2">
         <Label htmlFor="act-email">Email</Label>
-        <Input id="act-email" name="email" type="email" autoComplete="email" defaultValue={result.email ?? ""} required />
+        <Input
+          id="act-email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          defaultValue={result.email ?? ""}
+          readOnly
+          required
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="act-password">Password</Label>
-        <Input id="act-password" name="password" type="password" autoComplete="new-password" required />
+        <Input id="act-password" name="password" type="password" autoComplete="new-password" minLength={8} required />
       </div>
       <Button type="submit" className="w-full" disabled={submitting}>Activate account</Button>
     </form>

@@ -269,14 +269,14 @@ export const rotateWebhookSecret = mutation({
 //
 // The flow is:
 //   1. seedUserForAccount  (internal MUTATION, transactional) — admin gate +
-//      validation + duplicate check + PRE-SEED the users row. Pre-seeding is
-//      REQUIRED: createAccount → upsertUserAndAccount → our authGate callback,
-//      which (with existingUserId=null and no provisioning token) only succeeds
-//      if it finds a pre-seeded users row by email; otherwise it throws.
-//   2. createAccount  (in the action) — creates the password authAccounts row
-//      and links it to the seeded users row via authGate step 2.
+//      validation + duplicate check + PRE-SEED the users row together with a
+//      one-time activation token for it. authGate only links a pre-created row
+//      to a new password when shown that row's activation token, exactly as for
+//      the first admin and webhook customers.
+//   2. createAccount  (in the action) — creates the password authAccounts row,
+//      presenting the token; authGate step 2 links it and uses the token up.
 //   3. On failure after the seed, the action best-effort deletes the orphaned
-//      seeded row (actions are NOT transactional, unlike mutations).
+//      row and token (actions are NOT transactional, unlike mutations).
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -286,9 +286,9 @@ export const seedUserForAccount = internalMutation({
     name: v.optional(v.string()),
     password: v.string(),
   },
-  returns: v.object({ userId: v.id("users") }),
+  returns: v.object({ userId: v.id("users"), activationToken: v.string() }),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const admin = await requireAdmin(ctx);
 
     const email = args.email.toLowerCase().trim();
     if (!email.includes("@")) {
@@ -306,25 +306,44 @@ export const seedUserForAccount = internalMutation({
       throw new ConvexError("An account with that email already exists.");
     }
 
+    const now = Date.now();
     const userId = await ctx.db.insert("users", {
       email,
       name: args.name,
       role: "user",
       status: "active",
       createdVia: "seed",
-      createdAt: Date.now(),
+      createdAt: now,
     });
-    return { userId };
+    const activationToken = crypto.randomUUID();
+    await ctx.db.insert("provisioningTokens", {
+      token: activationToken,
+      issuerId: admin._id,
+      targetRole: "user",
+      email,
+      maxUses: 1,
+      usedCount: 0,
+      expiresAt: now + 1000 * 60 * 10, // used seconds later by createUserAccount
+      revoked: false,
+      purpose: "activation",
+      createdAt: now,
+    });
+    return { userId, activationToken };
   },
 });
 
-/** Internal: best-effort delete of a seeded users row if createAccount fails. */
+/** Internal: best-effort cleanup of a seeded row + its token if createAccount fails. */
 export const deleteSeededUser = internalMutation({
-  args: { userId: v.id("users") },
+  args: { userId: v.id("users"), activationToken: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.userId);
     if (existing) await ctx.db.delete(args.userId);
+    const tok = await ctx.db
+      .query("provisioningTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.activationToken))
+      .unique();
+    if (tok) await ctx.db.delete(tok._id);
     return null;
   },
 });
@@ -341,26 +360,28 @@ export const createUserAccount = action({
     const name = args.name;
 
     // 1. Admin gate + validation + duplicate check + pre-seed (transactional).
-    const { userId } = await ctx.runMutation(internal.admin.seedUserForAccount, {
-      email,
-      name,
-      password: args.password,
-    });
+    const { userId, activationToken } = await ctx.runMutation(
+      internal.admin.seedUserForAccount,
+      { email, name, password: args.password },
+    );
 
     // 2. Create the password credential so the account can sign in immediately.
     //    Provider id is "password" (the Password provider's hardcoded id, no
-    //    explicit id set in auth.ts). authGate links the new authAccount to the
-    //    pre-seeded users row by email (step 2 of authGate).
+    //    explicit id set in auth.ts). authGate step 2 links the new authAccount
+    //    to the pre-seeded row because it's shown that row's activation token.
+    // Convex Auth types `profile` as a users row, but passes it through to
+    // authGate untouched (validated as v.any()); authGate reads `token` from it.
+    const profile = { email, name, token: activationToken };
     try {
       await createAccount(ctx, {
         provider: "password",
         account: { id: email, secret: args.password },
-        profile: { email, name },
+        profile,
       });
     } catch (err) {
       // Actions are not transactional — roll back the pre-seeded row by hand so
       // a failed credential creation never leaves an orphaned users row.
-      await ctx.runMutation(internal.admin.deleteSeededUser, { userId });
+      await ctx.runMutation(internal.admin.deleteSeededUser, { userId, activationToken });
       throw err;
     }
 

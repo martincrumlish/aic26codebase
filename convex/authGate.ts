@@ -1,7 +1,7 @@
 // convex/authGate.ts
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 type Ctx = MutationCtx;
 type Args = {
@@ -33,56 +33,78 @@ export default async function createOrUpdateUser(
   const email = (args.profile.email as string | undefined)?.toLowerCase().trim();
   if (!email) throw new ConvexError("Email is required to sign in.");
 
-  // 2. Pre-seeded users row (webhook / admin seed / admin-created account).
+  // The token comes from the sign-up form (Password.profile() passes it
+  // through) or from a server-side createAccount call.
+  const tokenValue = (args.profile.token as string | undefined)?.trim();
+  const tok = tokenValue
+    ? await ctx.db
+        .query("provisioningTokens")
+        .withIndex("by_token", (q) => q.eq("token", tokenValue))
+        .unique()
+    : null;
+  const now = Date.now();
+
+  // 2. Pre-created account (first admin, webhook customer, admin-added user).
+  //    Knowing the email is NOT enough: only the holder of that account's own
+  //    activation token may claim it, and the token is used up here, in the
+  //    same transaction. Every failure gives the same message as an unknown
+  //    email, so this can't be used to discover pre-created accounts.
   const seeded = await ctx.db
     .query("users")
     .withIndex("by_email", (q) => q.eq("email", email))
     .unique();
 
   if (seeded) {
+    if (
+      !tok ||
+      tok.purpose !== "activation" ||
+      !isUsable(tok, now) ||
+      tok.email?.toLowerCase().trim() !== email
+    ) {
+      throw new ConvexError(NOT_ENABLED);
+    }
     if (seeded.status === "revoked") {
       throw new ConvexError("This account has been revoked.");
     }
+    await ctx.db.patch(tok._id, { usedCount: tok.usedCount + 1 });
     await ctx.db.patch(seeded._id, {
       name: (args.profile.name as string) ?? seeded.name,
       emailVerificationTime:
-        args.type === "email" ? Date.now() : seeded.emailVerificationTime,
+        args.type === "email" ? now : seeded.emailVerificationTime,
     });
     return seeded._id;
   }
 
-  // 3. Token-on-profile signup path (Password.profile() passes `token` through).
-  //    No token (or an invalid one) falls through to the final rejection.
-  const tokenValue = (args.profile.token as string | undefined)?.trim();
-  if (tokenValue) {
-    const tok = await ctx.db
-      .query("provisioningTokens")
-      .withIndex("by_token", (q) => q.eq("token", tokenValue))
-      .unique();
-    const now = Date.now();
-    if (
-      tok &&
-      tok.purpose === "signup" &&
-      !tok.revoked &&
-      (tok.expiresAt === undefined || tok.expiresAt > now) &&
-      (tok.maxUses === undefined || tok.usedCount < tok.maxUses) &&
-      (!tok.email || tok.email.toLowerCase().trim() === email)
-    ) {
-      const userId = await ctx.db.insert("users", {
-        email,
-        name: (args.profile.name as string) ?? undefined,
-        role: tok.targetRole,
-        status: "active",
-        createdVia: "token",
-        createdAt: now,
-      });
-      await ctx.db.patch(tok._id, { usedCount: tok.usedCount + 1 });
-      return userId;
-    }
+  // 3. New account through a signup link.
+  if (
+    tok &&
+    tok.purpose === "signup" &&
+    isUsable(tok, now) &&
+    (!tok.email || tok.email.toLowerCase().trim() === email)
+  ) {
+    const userId = await ctx.db.insert("users", {
+      email,
+      name: (args.profile.name as string) ?? undefined,
+      role: tok.targetRole,
+      status: "active",
+      createdVia: "token",
+      createdAt: now,
+    });
+    await ctx.db.patch(tok._id, { usedCount: tok.usedCount + 1 });
+    return userId;
   }
 
   // 4. Otherwise reject — NO users row, NO authAccount, NO session.
-  throw new ConvexError(
-    "This email is not enabled for this app. Ask your administrator for an invite.",
+  throw new ConvexError(NOT_ENABLED);
+}
+
+const NOT_ENABLED =
+  "This email is not enabled for this app. Ask your administrator for an invite.";
+
+function isUsable(tok: Doc<"provisioningTokens">, now: number) {
+  return (
+    !tok.revoked &&
+    (tok.expiresAt === undefined || tok.expiresAt > now) &&
+    (tok.maxUses === undefined || tok.usedCount < tok.maxUses)
   );
 }

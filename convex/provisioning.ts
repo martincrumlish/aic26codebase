@@ -1,5 +1,5 @@
 // convex/provisioning.ts
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 
@@ -109,48 +109,5 @@ export const validateToken = query({
   },
 });
 
-// —— Consume an ACTIVATION token: pre-seed/link the users row so the gated
-//    auth flow (authGate step 2) accepts the email, then mark consumed. The
-//    client then calls signIn("password", { flow: "signUp", email, password }).
-export const consumeActivationToken = mutation({
-  args: { token: v.string(), email: v.string() },
-  returns: v.object({ ok: v.boolean(), email: v.string() }),
-  handler: async (ctx, args) => {
-    const email = args.email.toLowerCase().trim();
-    const tok = await ctx.db
-      .query("provisioningTokens")
-      .withIndex("by_token", (q) => q.eq("token", args.token))
-      .unique();
-    const now = Date.now();
-    if (
-      !tok ||
-      tok.purpose !== "activation" ||
-      tok.revoked ||
-      (tok.expiresAt !== undefined && tok.expiresAt <= now) ||
-      (tok.maxUses !== undefined && tok.usedCount >= tok.maxUses)
-    ) {
-      throw new ConvexError("This activation link is no longer valid.");
-    }
-    if (tok.email && tok.email.toLowerCase().trim() !== email) {
-      throw new ConvexError("This activation link is for a different email.");
-    }
-    // Ensure a pre-seeded users row exists (webhook usually created it).
-    const existing = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
-    if (!existing) {
-      await ctx.db.insert("users", {
-        email,
-        role: tok.targetRole,
-        status: "active",
-        createdVia: "webhook",
-        createdAt: now,
-      });
-    } else if (existing.status === "revoked") {
-      throw new ConvexError("This account has been revoked.");
-    }
-    await ctx.db.patch(tok._id, { usedCount: tok.usedCount + 1 });
-    return { ok: true, email };
-  },
-});
+// Activation itself happens in authGate: the /activate page signs up with the
+// activation token, and authGate checks and uses it up in one transaction.
