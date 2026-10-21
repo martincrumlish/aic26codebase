@@ -3,9 +3,11 @@ import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { makeFunctionReference, type GenericActionCtx } from "convex/server";
-import { ConvexError, type Value } from "convex/values";
+import { ConvexError, v, type Value } from "convex/values";
 import type { DataModel, Id } from "./_generated/dataModel";
+import { internalMutation, type MutationCtx } from "./_generated/server";
 import createOrUpdateUser from "./authGate";
+import { connectGoogleIfSignedIn } from "./lib/googleConnect";
 import { PasswordResetCode } from "./passwordReset";
 import { EmailConfirmationCode } from "./lib/emailCode";
 import {
@@ -107,12 +109,31 @@ const google = Google({
   },
 });
 
-export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+const convexAuthFns = convexAuth({
   providers: [guardedPassword, google],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
       // Static import (was dynamic) — Convex functions do not support dynamic imports.
       return createOrUpdateUser(ctx, args);
     },
+  },
+});
+
+export const { auth, signIn, signOut, isAuthenticated } = convexAuthFns;
+
+// Convex Auth's internal `store` step, with "Connect Google" in front of it.
+// createOrUpdateUser isn't told who started a sign-in, but the pending sign-in
+// is, so linking a signed-in user's Google account happens here (see
+// lib/googleConnect.ts). Everything else goes straight to Convex Auth.
+type StoreHandler = (ctx: MutationCtx, args: { args: Record<string, unknown> }) => Promise<unknown>;
+const convexAuthStore = (convexAuthFns.store as unknown as { _handler: StoreHandler })._handler;
+
+export const store = internalMutation({
+  // Convex Auth validates the inner arguments itself, and its store has no
+  // `returns` validator either (it returns a different shape per step).
+  args: { args: v.any() },
+  handler: async (ctx, args) => {
+    await connectGoogleIfSignedIn(ctx, args.args);
+    return await convexAuthStore(ctx, args);
   },
 });

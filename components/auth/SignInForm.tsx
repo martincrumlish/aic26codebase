@@ -53,7 +53,7 @@ export function SignInForm({ googleReturn = false }: { googleReturn?: boolean })
       {googleReturn && (
         <p role="status" className="rounded-lg bg-muted px-3 py-2 text-sm">
           Google sign-in didn&apos;t go through. If this email already has an account, sign in with your
-          password below.
+          password below, then connect Google in Settings.
         </p>
       )}
       <GoogleButton />

@@ -64,10 +64,16 @@ The rules are in `convex/authGate.ts`:
 
 - **A new email:** gets a normal `user` account when sign-up is open (the default). In link mode (`SIGNUP_MODE=link`), Google can't create accounts.
 - **An email that already has an account:** Google signs into it if that account has no password yet (for example, an account created by a purchase or by an admin that hasn't been activated) or if its email was confirmed by code. Signing in this way also cancels any activation links still out for that address.
-- **An email with a password account that never confirmed its email:** refused. Anyone could have signed up with that address, and linking would leave them with a working password into the real owner's account. These people sign in with their password. With email set up (`AUTH_RESEND_KEY`), new password accounts confirm their email, so this only affects accounts created without it.
+- **An email with a password account that never confirmed its email:** refused. Anyone could have signed up with that address, and linking would leave them with a working password into the real owner's account. These people sign in with their password, then use **Connect Google** (below). With email set up (`AUTH_RESEND_KEY`), new password accounts confirm their email, so this only affects accounts created without it.
 - **Revoked accounts** stay locked out.
 
-When Google sign-in doesn't finish (a refusal above, or someone cancels at Google), they land back on `/signin` with a note telling them to use their password.
+When Google sign-in doesn't finish (a refusal above, or someone cancels at Google), they land back on `/signin` with a note telling them to use their password and then connect Google.
+
+## Connect Google (Settings)
+
+Signed-in users can add Google under **Settings > Google**: click **Connect Google**, choose their Google account, and they're back in Settings with Google connected. From then on, **Continue with Google** signs them straight in.
+
+This is always safe, whatever the account's history, because the person has just proved both things: they're signed in to the account, and they signed in to the Google account. It attaches the Google account to the account that started the connection, never to one that merely has the same email (`convex/lib/googleConnect.ts`). One Google account per user; a Google account already used by someone else can't be moved. **Disconnect** is refused if Google is the account's only way to sign in.
 
 ## Troubleshooting
 

@@ -2,6 +2,7 @@
 import { Suspense } from "react";
 import { BillingCard } from "@/components/billing/BillingCard";
 import { AiForm } from "@/components/settings/AiForm";
+import { GoogleConnect } from "@/components/settings/GoogleConnect";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { SecurityForm } from "@/components/settings/SecurityForm";
 
@@ -48,6 +49,11 @@ export default function SettingsPage() {
         </section>
 
         <hr className="border-border" />
+
+        {/* Renders its own section (or nothing, if Google isn't set up). Suspense: reads ?connect=google. */}
+        <Suspense fallback={null}>
+          <GoogleConnect />
+        </Suspense>
 
         <section>
           <h2 className="text-lg font-semibold">AI</h2>
