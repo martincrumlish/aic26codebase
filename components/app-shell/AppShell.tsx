@@ -51,7 +51,7 @@ function SidebarBody({
           "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_0_1px_0_oklch(1_0_0/0.08)]"
-            : "text-sidebar-foreground/65 hover:bg-white/[0.06] hover:text-sidebar-foreground",
+            : "text-sidebar-foreground/65 hover:bg-sidebar-foreground/[0.06] hover:text-sidebar-foreground",
         )}
       >
         <Icon className="size-4 shrink-0" />
@@ -89,7 +89,7 @@ function SidebarBody({
         )}
       </nav>
 
-      <div className="border-t border-white/10 p-3">
+      <div className="border-t border-sidebar-foreground/10 p-3">
         {me?.email && <AccountMenu email={me.email} name={me.name ?? null} />}
       </div>
     </>
@@ -110,7 +110,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
           <SheetTrigger
             aria-label="Open menu"
-            className="rounded-md p-2 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            className="rounded-md p-2 transition-colors hover:bg-sidebar-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           >
             <MenuIcon className="size-5" />
           </SheetTrigger>

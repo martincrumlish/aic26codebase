@@ -81,11 +81,22 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: #070d24; /* RGB(7,13,36), brand navy */
+
+  /* ── YOUR BRAND ──────────────────────────────────────────────────────────
+     The brand colour is the app's sidebar AND the background of the public
+     pages (landing, pricing, sign-in panel). Defined once here; dark mode uses
+     the same values. Any CSS colour works (#hex, rgb(), oklch()).
+       --sidebar             the brand colour
+       --sidebar-foreground  text and icons on it: white-ish for a dark brand
+                             colour, near-black for a light one (and then use a
+                             dark logo in public/brand/)
+       --sidebar-accent      the selected sidebar item
+       --sidebar-primary     the tint behind feature icons on the landing page
+     Buttons and links are --primary above (and in .dark below). */
+  --sidebar: #070d24;
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.48 0.19 256);
+  --sidebar-primary: oklch(0.55 0.19 256);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  /* hover (accent/60) + selected (accent) surface, tuned for the dark navy bg */
   --sidebar-accent: oklch(0.40 0.10 262);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 12%);
@@ -117,15 +128,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: #070d24; /* RGB(7,13,36), brand navy */
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.55 0.19 256);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  /* hover (accent/60) + selected (accent) surface, tuned for the dark navy bg */
-  --sidebar-accent: oklch(0.40 0.10 262);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.60 0.14 256);
+  /* The brand (--sidebar*) isn't repeated here: dark mode uses YOUR BRAND above. */
 }
 
 @layer base {

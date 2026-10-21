@@ -38,7 +38,7 @@ const FEATURES = [
 
 export function Landing({ signupOpen }: { signupOpen: boolean }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-sidebar text-white">
+    <div className="flex min-h-dvh flex-col bg-sidebar text-sidebar-foreground">
       <div className="relative overflow-hidden">
         {/* The same artwork as the sign-in page, fading in from the bottom-left. */}
         <Image
@@ -56,7 +56,7 @@ export function Landing({ signupOpen }: { signupOpen: boolean }) {
           <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-20 pt-12 sm:px-6 md:pt-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-8">
             <div>
               <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">{siteConfig.name}</h1>
-              <p className="mt-5 max-w-md text-lg leading-relaxed text-white/70">{siteConfig.description}</p>
+              <p className="mt-5 max-w-md text-lg leading-relaxed text-sidebar-foreground/70">{siteConfig.description}</p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 {signupOpen ? (
                   <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "px-5 shadow-lg shadow-primary/20")}>
@@ -64,13 +64,13 @@ export function Landing({ signupOpen }: { signupOpen: boolean }) {
                     <ArrowRightIcon />
                   </Link>
                 ) : (
-                  <p className="text-sm text-white/60">Accounts are by invitation.</p>
+                  <p className="text-sm text-sidebar-foreground/60">Accounts are by invitation.</p>
                 )}
               </div>
             </div>
 
             <div className="relative">
-              <div className="overflow-hidden rounded-xl border border-white/15 bg-white/5 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-sm">
+              <div className="overflow-hidden rounded-xl border border-sidebar-foreground/15 bg-sidebar-foreground/5 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-sm">
                 <Image
                   src="/brand/app-preview.png"
                   alt={`A preview of the app: the ${siteConfig.name} dashboard`}
@@ -90,12 +90,12 @@ export function Landing({ signupOpen }: { signupOpen: boolean }) {
         <h2 className="max-w-xl text-3xl font-semibold tracking-tight">Everything you need, already working.</h2>
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
           {FEATURES.map(({ Icon, title, text }) => (
-            <div key={title} className="rounded-xl border border-white/10 bg-white/[0.04] p-6 transition-colors hover:bg-white/[0.07]">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary/20 text-[oklch(0.75_0.12_256)]">
+            <div key={title} className="rounded-xl border border-sidebar-foreground/10 bg-sidebar-foreground/[0.04] p-6 transition-colors hover:bg-sidebar-foreground/[0.07]">
+              <span className="flex size-10 items-center justify-center rounded-lg bg-sidebar-primary/25 text-sidebar-foreground">
                 <Icon className="size-5" />
               </span>
               <h3 className="mt-4 text-lg font-semibold">{title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/65">{text}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-sidebar-foreground/65">{text}</p>
             </div>
           ))}
         </div>

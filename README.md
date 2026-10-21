@@ -308,10 +308,29 @@ The intended workflow: **use the GitHub template** (or clone and re-init), renam
 **1. Get your own copy.**
 On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder, and `git init` for a clean history).
 
-**2. Rename the app.**
-- `lib/site.ts` - your app's name and one-line description (used in the browser tab, the landing page, and search results)
+**2. Make it yours: name, logo, colours.**
+- `lib/site.ts` - your app's name and one-line description (browser tab, landing page, sign-in panel, footer)
 - `package.json` - `name`
-- `public/brand/` - replace `small-transparent.png` (logo in the sidebar and on the public pages; white on transparent suits the navy), `mid-transparent.png` (sign-in page logo), `auth-bg.png` (artwork behind the sign-in page and the landing hero), and `app-preview.png` (the screenshot on the landing page: use one of your product)
+- `public/brand/` - replace the images, keeping the file names:
+
+  | File | Where it shows |
+  |---|---|
+  | `small-transparent.png` | Logo in the sidebar and on the landing and pricing pages |
+  | `mid-transparent.png` | Larger logo on the sign-in panel |
+  | `auth-bg.png` | Artwork behind the sign-in panel, faded behind the landing hero |
+  | `app-preview.png` | The screenshot on the landing page: use one of your product |
+
+- **Colours** - `app/globals.css`, in the block marked **YOUR BRAND**:
+
+  | Token | What it colours |
+  |---|---|
+  | `--sidebar` | Your brand colour: the app's sidebar and the background of the landing, pricing and sign-in pages |
+  | `--sidebar-foreground` | Text and icons on the brand colour. Keep it light for a dark brand colour; for a light one, use near-black, and switch to a dark logo |
+  | `--sidebar-accent` | The selected item in the sidebar |
+  | `--primary` | Buttons, links and highlights (set it in `:root` and `.dark`) |
+  | `--canvas` | The grey page background inside the app |
+
+  Any CSS colour works (`#hex`, `rgb()`, `oklch()`). The typeface is set in `app/layout.tsx` (Geist by default).
 
 **3. Wire a fresh Convex project** - follow the [Quickstart](#quickstart-running-it-locally).
 

@@ -61,16 +61,16 @@ export function AccountMenu({ email, name }: AccountMenuProps) {
           "w-full cursor-pointer appearance-none bg-transparent text-left",
           "flex items-center gap-2.5 rounded-lg px-2 py-2",
           "text-sidebar-foreground/80 transition-colors",
-          "hover:bg-white/10 hover:text-sidebar-foreground",
+          "hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           // When the menu is open, keep the row highlighted
-          "data-popup-open:bg-white/10 data-popup-open:text-sidebar-foreground",
+          "data-popup-open:bg-sidebar-foreground/10 data-popup-open:text-sidebar-foreground",
         )}
         aria-label="Account menu"
       >
         {/* Avatar circle */}
         <span
-          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-white/20 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground"
+          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-foreground/20 text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground"
           aria-hidden="true"
         >
           {avatarLetters}

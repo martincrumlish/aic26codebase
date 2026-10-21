@@ -19,8 +19,8 @@ export function AuthSplit({
 }) {
   return (
     <main className="grid min-h-dvh md:grid-cols-2">
-      {/* Brand panel. The #03091b fill shows while the image loads. */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-[#03091b] p-10 text-white md:flex">
+      {/* Brand panel: the sidebar colour, with the artwork on top. */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground md:flex">
         <Image
           src="/brand/auth-bg.png"
           alt=""
@@ -39,15 +39,15 @@ export function AuthSplit({
             priority
             className="h-14 w-auto"
           />
-          <p className="max-w-xs text-white/70">{siteConfig.description}</p>
+          <p className="max-w-xs text-sidebar-foreground/70">{siteConfig.description}</p>
         </div>
-        <p className="relative z-10 text-sm text-white/40">
+        <p className="relative z-10 text-sm text-sidebar-foreground/40">
           © {new Date().getFullYear()} {siteConfig.name}
         </p>
       </div>
 
       <div className="flex flex-col bg-background">
-        {/* Phones: the logo in a navy bar, since the brand panel is hidden. */}
+        {/* Phones: the logo in a sidebar-coloured bar, since the brand panel is hidden. */}
         <div className="flex h-14 items-center justify-center bg-sidebar md:hidden">
           <Link href="/">
             <Image

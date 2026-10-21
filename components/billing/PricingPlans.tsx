@@ -44,7 +44,7 @@ export function PricingPlans() {
     <div className="space-y-8">
       <div className="flex justify-center">
         <div
-          className="inline-flex rounded-full border border-white/15 bg-white/5 p-1"
+          className="inline-flex rounded-full border border-sidebar-foreground/15 bg-sidebar-foreground/5 p-1"
           role="group"
           aria-label="Billing period"
         >
@@ -56,7 +56,7 @@ export function PricingPlans() {
               onClick={() => setBillingInterval(i)}
               className={cn(
                 "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                interval === i ? "bg-white text-sidebar shadow-sm" : "text-white/70 hover:text-white",
+                interval === i ? "bg-sidebar-foreground text-sidebar shadow-sm" : "text-sidebar-foreground/70 hover:text-sidebar-foreground",
               )}
             >
               {i === "monthly" ? "Monthly" : "Yearly"}
