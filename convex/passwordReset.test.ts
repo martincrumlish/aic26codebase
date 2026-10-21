@@ -1,26 +1,13 @@
 // convex/passwordReset.test.ts — "Forgot your password?" via an emailed code.
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { ConvexError } from "convex/values";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import { generateResetCode, sendResetCode } from "./passwordReset";
+import { stubAuthEnv } from "../vitest/authEnv";
 
 const modules = import.meta.glob("./**/*.ts");
-
-// Convex Auth signs session JWTs and reads SITE_URL (both set by `npm run
-// setup` on real deployments); give it throwaway values for the test.
-async function stubAuthEnv() {
-  vi.stubEnv("SITE_URL", "http://localhost:3000");
-  const pair = await crypto.subtle.generateKey(
-    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-    true,
-    ["sign", "verify"],
-  );
-  const pkcs8 = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
-  const b64 = btoa(String.fromCharCode(...pkcs8)).replace(/(.{64})/g, "$1\n");
-  vi.stubEnv("JWT_PRIVATE_KEY", `-----BEGIN PRIVATE KEY-----\n${b64}\n-----END PRIVATE KEY-----`);
-  vi.stubEnv("CONVEX_SITE_URL", "https://test.convex.site");
-}
 
 /** Stub Resend; returns the list of codes that were "emailed". */
 function stubResend() {
@@ -63,17 +50,36 @@ describe("sendResetCode", () => {
     expect(sent[0].html).toContain("12345678");
   });
 
-  test("explains that email isn't set up when AUTH_RESEND_KEY is missing", async () => {
+  // These failures happen only AFTER Convex Auth has found the account, while
+  // an unknown email fails earlier with a plain error. Using plain errors here
+  // too (which Convex redacts in production) means a caller can't tell
+  // "account exists" from "no such account" by which error comes back.
+  test("fails with a plain (non-ConvexError) error when AUTH_RESEND_KEY is missing", async () => {
     vi.stubEnv("AUTH_RESEND_KEY", "");
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
-    await expect(sendResetCode("a@x.com", "12345678")).rejects.toThrow(/email isn't set up/i);
+    const err = await sendResetCode("a@x.com", "12345678").catch((e) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(err).not.toBeInstanceOf(ConvexError);
+    expect(err.message).toMatch(/email isn't set up/i);
     expect(spy).not.toHaveBeenCalled();
   });
 
-  test("reports a send failure instead of pretending it worked", async () => {
+  test("reports a send failure with a plain error instead of pretending it worked", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 422 })));
-    await expect(sendResetCode("a@x.com", "12345678")).rejects.toThrow(/could not send/i);
+    const err = await sendResetCode("a@x.com", "12345678").catch((e) => e);
+    expect(err).not.toBeInstanceOf(ConvexError);
+    expect(err.message).toMatch(/could not send/i);
+  });
+});
+
+describe("passwordReset.available", () => {
+  test("tells signed-out visitors whether reset is possible (email configured)", async () => {
+    const t = convexTest(schema, modules);
+    vi.stubEnv("AUTH_RESEND_KEY", "");
+    expect(await t.query(api.passwordReset.available, {})).toBe(false);
+    vi.stubEnv("AUTH_RESEND_KEY", "re_test_123");
+    expect(await t.query(api.passwordReset.available, {})).toBe(true);
   });
 });
 

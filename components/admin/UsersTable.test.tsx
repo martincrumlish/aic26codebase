@@ -19,6 +19,8 @@ vi.mock("convex/react", async (orig) => ({
   ]),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useMutation: vi.fn((ref: any) => spyFor(getFunctionName(ref))),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useAction: vi.fn((ref: any) => spyFor(getFunctionName(ref))),
 }));
 
 import { UsersTable } from "./UsersTable";
@@ -50,6 +52,25 @@ describe("UsersTable", () => {
 
     await userEvent.click(row("ben@x.com").getByRole("button", { name: /restore/i }));
     expect(spies["admin:restoreUser"]).toHaveBeenCalledWith({ userId: "u2" });
+  });
+
+  test("set password opens a dialog and calls setUserPassword for that user", async () => {
+    render(<UsersTable currentUserId="me" />);
+    const user = userEvent.setup();
+    await user.click(row("amy@x.com").getByRole("button", { name: /set password/i }));
+    await user.type(screen.getByLabelText(/^new password$/i), "admin-chosen-pw");
+    await user.click(screen.getByRole("button", { name: /^save password$/i }));
+    expect(spies["admin:setUserPassword"]).toHaveBeenCalledWith({
+      userId: "u1",
+      password: "admin-chosen-pw",
+    });
+  });
+
+  test("other admins have no set-password action", () => {
+    render(<UsersTable currentUserId="me" />);
+    expect(
+      row("other-admin@x.com").queryByRole("button", { name: /set password/i }),
+    ).not.toBeInTheDocument();
   });
 
   test("delete is gated by typing the email, then calls deleteUserAccount", async () => {

@@ -47,7 +47,7 @@ export function JoinForm({ token }: { token: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Create your account to get started.
+        Choose an email and password to get started.
       </p>
       <div className="space-y-2">
         <Label htmlFor="join-email">Email</Label>

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import createOrUpdateUser from "./authGate";
+import { stubAuthEnv } from "../vitest/authEnv";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -284,6 +285,63 @@ describe("createUserAccount (admin-only)", () => {
       t.withIdentity({ subject: userId }).action(api.admin.createUserAccount, {
         email: "blocked@example.com",
         password: "supersecret",
+      }),
+    ).rejects.toThrow(/Admin role required/);
+  });
+});
+
+describe("setUserPassword (admin-only)", () => {
+  test("sets a user's password: the new one signs in, the old one no longer does", async () => {
+    await stubAuthEnv();
+    const t = convexTest(schema, modules);
+    const adminId = await seed(t, "admin");
+    const asAdmin = t.withIdentity({ subject: adminId });
+    const { userId } = await asAdmin.action(api.admin.createUserAccount, {
+      email: "locked-out@x.com",
+      password: "original-password",
+    });
+
+    await asAdmin.action(api.admin.setUserPassword, { userId, password: "admin-chosen-pw" });
+
+    const ok = await t.action(api.auth.signIn, {
+      provider: "password",
+      params: { email: "locked-out@x.com", flow: "signIn", password: "admin-chosen-pw" },
+    });
+    expect(ok.tokens).toBeTruthy();
+    await expect(
+      t.action(api.auth.signIn, {
+        provider: "password",
+        params: { email: "locked-out@x.com", flow: "signIn", password: "original-password" },
+      }),
+    ).rejects.toThrow();
+  });
+
+  test("refuses your own account, other admins, and short passwords", async () => {
+    const t = convexTest(schema, modules);
+    const adminId = await seed(t, "admin");
+    const otherAdminId = await seed(t, "admin");
+    const userId = await seed(t, "user");
+    const asAdmin = t.withIdentity({ subject: adminId });
+
+    await expect(
+      asAdmin.action(api.admin.setUserPassword, { userId: adminId, password: "long-enough-pw" }),
+    ).rejects.toThrow(/your own account/i);
+    await expect(
+      asAdmin.action(api.admin.setUserPassword, { userId: otherAdminId, password: "long-enough-pw" }),
+    ).rejects.toThrow(/remove admin rights/i);
+    await expect(
+      asAdmin.action(api.admin.setUserPassword, { userId, password: "short" }),
+    ).rejects.toThrow(/at least 8 characters/i);
+  });
+
+  test("rejects non-admin callers", async () => {
+    const t = convexTest(schema, modules);
+    const userId = await seed(t, "user");
+    const targetId = await seed(t, "user");
+    await expect(
+      t.withIdentity({ subject: userId }).action(api.admin.setUserPassword, {
+        userId: targetId,
+        password: "long-enough-pw",
       }),
     ).rejects.toThrow(/Admin role required/);
   });

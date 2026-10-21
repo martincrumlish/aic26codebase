@@ -1,8 +1,12 @@
 // convex/admin.ts — admin console backend. Every function is admin-only.
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { createAccount } from "@convex-dev/auth/server";
+import {
+  createAccount,
+  invalidateSessions,
+  modifyAccountCredentials,
+} from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./access";
 
@@ -361,6 +365,45 @@ export const createUserAccount = action({
     }
 
     return { userId };
+  },
+});
+
+// ── Set a user's password ────────────────────────────────────────────────────
+// For when a user is locked out and email (self-service reset) isn't set up.
+// Signs the user out of every session so the old password's sessions end too.
+
+/** Internal: admin gate + target checks for setUserPassword. */
+export const passwordTarget = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.object({ email: v.string() }),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const target = await requireManageableTarget(ctx, admin._id, args.userId, "set a password for");
+    if (!target.email) throw new ConvexError("This account has no email address.");
+    return { email: target.email };
+  },
+});
+
+export const setUserPassword = action({
+  args: { userId: v.id("users"), password: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { email } = await ctx.runQuery(internal.admin.passwordTarget, { userId: args.userId });
+    if (args.password.length < MIN_PASSWORD_LENGTH) {
+      throw new ConvexError("Password must be at least 8 characters.");
+    }
+    try {
+      await modifyAccountCredentials(ctx, {
+        provider: "password",
+        account: { id: email, secret: args.password },
+      });
+    } catch {
+      throw new ConvexError(
+        "This user hasn't set a password yet. Send them a signup or activation link instead.",
+      );
+    }
+    await invalidateSessions(ctx, { userId: args.userId });
+    return null;
   },
 });
 

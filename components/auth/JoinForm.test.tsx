@@ -27,7 +27,7 @@ describe("JoinForm", () => {
   test("valid token: invites the visitor to create an account, without role jargon", () => {
     useQueryMock.mockReturnValue({ valid: true, purpose: "signup" });
     render(<JoinForm token="tok" />);
-    expect(screen.getByText(/create your account/i)).toBeInTheDocument();
+    expect(screen.getByText(/choose an email and password/i)).toBeInTheDocument();
     expect(screen.queryByText(/creator|invited as/i)).not.toBeInTheDocument();
   });
 

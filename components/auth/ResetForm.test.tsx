@@ -10,10 +10,16 @@ vi.mock("@convex-dev/auth/react", () => ({
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
+let resetAvailable: boolean | undefined = true;
+vi.mock("convex/react", async (orig) => ({
+  ...(await orig<typeof import("convex/react")>()),
+  useQuery: vi.fn(() => resetAvailable),
+}));
 
 import { ResetForm } from "./ResetForm";
 
 beforeEach(() => {
+  resetAvailable = true;
   signIn.mockReset();
   toast.success.mockReset();
   toast.error.mockReset();
@@ -26,6 +32,14 @@ async function requestCode(email: string) {
 }
 
 describe("ResetForm", () => {
+  test("when email isn't set up, explains why up front and never asks for an email", () => {
+    resetAvailable = false;
+    render(<ResetForm />);
+    expect(screen.getByText(/ask your administrator/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    expect(signIn).not.toHaveBeenCalled();
+  });
+
   test("requests a code with the reset flow and moves to the code step", async () => {
     signIn.mockResolvedValueOnce(undefined);
     await requestCode("a@x.com");

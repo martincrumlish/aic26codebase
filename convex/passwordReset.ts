@@ -2,10 +2,14 @@
 // reset flow emails an 8-digit code (valid 15 minutes) via Resend. The code is
 // bound to the email it was sent to, and Convex Auth rate-limits wrong guesses.
 //
-// Unlike transactional email, a reset that can't be sent must FAIL LOUDLY: the
-// user is waiting for a code, so we throw a ConvexError the reset page shows.
+// Failures here throw PLAIN Errors, not ConvexErrors. They only happen after
+// Convex Auth has found the account, while an unknown email fails earlier with
+// a plain error; Convex redacts plain error messages in production, so a caller
+// can't tell "account exists" from "no such account". The reset page checks
+// `available` first and explains a missing email setup before asking anything.
 import { Email } from "@convex-dev/auth/providers/Email";
-import { ConvexError } from "convex/values";
+import { v } from "convex/values";
+import { query } from "./_generated/server";
 import { sendViaResend } from "./lib/resend";
 
 const CODE_LENGTH = 8;
@@ -17,12 +21,19 @@ export function generateResetCode(): string {
   return Array.from(values, (n) => (n % 10).toString()).join("");
 }
 
+/**
+ * Public on purpose (no sign-in needed: it's for the "Forgot your password?"
+ * page). Reveals only whether email is configured, not anything about users.
+ */
+export const available = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async () => !!process.env.AUTH_RESEND_KEY,
+});
+
 export async function sendResetCode(email: string, code: string): Promise<void> {
   if (!process.env.AUTH_RESEND_KEY) {
-    throw new ConvexError(
-      "Password reset needs email, and email isn't set up for this app yet. " +
-        "Ask your administrator to reset your password.",
-    );
+    throw new Error("Password reset needs email, and email isn't set up for this app yet.");
   }
   const result = await sendViaResend({
     to: email,
@@ -34,7 +45,7 @@ export async function sendResetCode(email: string, code: string): Promise<void> 
     ].join("\n"),
   });
   if (!result.sent) {
-    throw new ConvexError("Could not send the reset email. Please try again later.");
+    throw new Error(`Could not send the reset email (${result.reason}).`);
   }
 }
 

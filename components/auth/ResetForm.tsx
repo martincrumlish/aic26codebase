@@ -1,15 +1,18 @@
 // components/auth/ResetForm.tsx
 "use client";
 import { useState } from "react";
+import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
+import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 export function ResetForm() {
   const { signIn } = useAuthActions();
+  const available = useQuery(api.passwordReset.available, {});
   const [step, setStep] = useState<"request" | "verify">("request");
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -52,6 +55,18 @@ export function ResetForm() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (available === undefined) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+  if (!available) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Password reset needs email, and email isn&apos;t set up for this app yet. Ask your
+        administrator to set a new password for you.
+      </p>
+    );
   }
 
   // Distinct keys make React remount the inputs when the step changes;

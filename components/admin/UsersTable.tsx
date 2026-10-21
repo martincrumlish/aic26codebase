@@ -1,7 +1,7 @@
 // components/admin/UsersTable.tsx
 "use client";
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useAction, useQuery, useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -34,12 +34,16 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
   const revoke = useMutation(api.admin.revokeUser);
   const restore = useMutation(api.admin.restoreUser);
   const deleteUser = useMutation(api.admin.deleteUserAccount);
+  const setPassword = useAction(api.admin.setUserPassword);
 
   // Delete is destructive (removes the account + ALL their content), so it's
   // gated behind a dialog that requires typing the email to confirm.
   const [target, setTarget] = useState<{ id: Id<"users">; email: string } | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  const [pwTarget, setPwTarget] = useState<{ id: Id<"users">; email: string } | null>(null);
+  const [savingPw, setSavingPw] = useState(false);
 
   if (users === undefined) return <p className="text-sm text-muted-foreground">Loading users…</p>;
 
@@ -57,6 +61,19 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
     await attempt(() => deleteUser({ userId: target.id }), "Account deleted.");
     setDeleting(false);
     closeDelete();
+  }
+
+  async function onSetPassword(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!pwTarget) return;
+    const password = new FormData(e.currentTarget).get("password") as string;
+    setSavingPw(true);
+    await attempt(
+      () => setPassword({ userId: pwTarget.id, password }),
+      `Password updated. ${pwTarget.email} has been signed out everywhere.`,
+    );
+    setSavingPw(false);
+    setPwTarget(null);
   }
 
   return (
@@ -119,6 +136,14 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
                         >
                           Make admin
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          title="Choose a new password for this user"
+                          onClick={() => setPwTarget({ id: u._id, email: u.email ?? "" })}
+                        >
+                          Set password
+                        </Button>
                         {revoked ? (
                           <Button
                             variant="outline"
@@ -159,6 +184,39 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
           </TableBody>
         </Table>
       </div>
+
+      <Dialog open={pwTarget !== null} onOpenChange={(o) => { if (!o) setPwTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set a new password</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={onSetPassword} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              For <strong className="text-foreground">{pwTarget?.email}</strong>. They&apos;ll be
+              signed out everywhere and can sign in with the new password straight away.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="pw-new">New password</Label>
+              <Input
+                id="pw-new"
+                name="password"
+                type="text"
+                autoComplete="off"
+                minLength={8}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                At least 8 characters. Share it with them securely.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="submit" disabled={savingPw}>
+                {savingPw ? "Saving…" : "Save password"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={target !== null} onOpenChange={(o) => { if (!o) closeDelete(); }}>
         <DialogContent>
