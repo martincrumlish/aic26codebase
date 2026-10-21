@@ -65,6 +65,12 @@ describe("SignInForm", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
+  test("back from a Google sign-in that didn't finish: explains what to do", () => {
+    render(<SignInForm googleReturn />);
+    expect(screen.getByRole("status")).toHaveTextContent(/google sign-in didn't go through/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/sign in with your password/i);
+  });
+
   test("links to sign-up only when sign-up is open", () => {
     const { unmount } = render(<SignInForm />);
     expect(screen.getByRole("link", { name: /sign up/i })).toHaveAttribute("href", "/signup");

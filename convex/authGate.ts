@@ -2,7 +2,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { REVOKED, SIGNUP_REJECTED } from "./lib/authMessages";
+import { GOOGLE_EMAIL_UNVERIFIED, GOOGLE_USE_PASSWORD, REVOKED, SIGNUP_REJECTED } from "./lib/authMessages";
 import { signupMode } from "./lib/signupMode";
 import { tokenIsUsable } from "./lib/tokens";
 
@@ -30,11 +30,19 @@ export default async function createOrUpdateUser(
     if (u.status === "revoked") {
       throw new ConvexError(REVOKED);
     }
+    // Confirming the email by code: record it, so a later Google sign-in with
+    // the same address can be linked to this account (see oauthUser).
+    if (args.type === "verification" && args.profile.emailVerified === true && !u.emailVerificationTime) {
+      await ctx.db.patch(u._id, { emailVerificationTime: Date.now() });
+    }
     return args.existingUserId;
   }
 
   const email = (args.profile.email as string | undefined)?.toLowerCase().trim();
   if (!email) throw new ConvexError("Email is required to sign in.");
+
+  // OAuth (Google): Google has already proved the email, so no tokens needed.
+  if (args.type === "oauth") return await oauthUser(ctx, args, email);
 
   // The token comes from the sign-up form (Password.profile() passes it
   // through) or from a server-side createAccount call.
@@ -118,4 +126,61 @@ export default async function createOrUpdateUser(
 // Same message as an existing account gets (see auth.ts), so sign-up can't be
 // used to discover which emails have accounts.
 const NOT_ENABLED = SIGNUP_REJECTED;
+
+/**
+ * A first Google sign-in (returning ones are step 1 above).
+ *
+ * If the email already has an account, link to it only when nobody but the
+ * email's owner can be holding a password for it: either it has no password
+ * yet (pre-created) or it confirmed the email by code. Otherwise someone could
+ * sign up with a victim's address first, wait for the victim to "Continue with
+ * Google", and keep a working password into the victim's account.
+ */
+async function oauthUser(ctx: Ctx, args: Args, email: string): Promise<Id<"users">> {
+  if (args.profile.emailVerified !== true) throw new ConvexError(GOOGLE_EMAIL_UNVERIFIED);
+  const now = Date.now();
+  const name = typeof args.profile.name === "string" ? args.profile.name : undefined;
+
+  const existing = await ctx.db
+    .query("users")
+    .withIndex("by_email", (q) => q.eq("email", email))
+    .unique();
+
+  if (existing) {
+    if (existing.status === "revoked") throw new ConvexError(REVOKED);
+    const password = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", existing._id).eq("provider", "password"))
+      .unique();
+    const emailProven = !password || password.emailVerified !== undefined || existing.emailVerificationTime !== undefined;
+    if (!emailProven) throw new ConvexError(GOOGLE_USE_PASSWORD);
+
+    // The owner has now claimed it: void any activation links still out there
+    // for this address, or their holder could set a password on it later.
+    const tokens = await ctx.db
+      .query("provisioningTokens")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .take(50);
+    for (const tok of tokens) {
+      if (tok.purpose === "activation" && !tok.revoked) await ctx.db.patch(tok._id, { revoked: true });
+    }
+    await ctx.db.patch(existing._id, {
+      name: existing.name ?? name,
+      emailVerificationTime: existing.emailVerificationTime ?? now,
+    });
+    return existing._id;
+  }
+
+  // A new person: only where anyone may sign up (Google has no signup link).
+  if (signupMode() !== "open") throw new ConvexError(NOT_ENABLED);
+  return await ctx.db.insert("users", {
+    email,
+    name,
+    role: "user",
+    status: "active",
+    createdVia: "signup",
+    createdAt: now,
+    emailVerificationTime: now,
+  });
+}
 

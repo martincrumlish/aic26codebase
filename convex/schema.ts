@@ -45,6 +45,7 @@ export default defineSchema({
     checkoutSessionId: v.optional(v.string()),
   })
     .index("by_token", ["token"])
+    .index("by_email", ["email"])
     .index("by_checkout_session", ["checkoutSessionId"]),
 
   // Which Stripe customer(s) belong to which user. The plan is decided from

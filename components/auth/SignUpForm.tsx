@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { EmailCodeStep } from "./EmailCodeStep";
+import { GoogleButton } from "./GoogleButton";
 
 export function SignUpForm() {
   const { signIn } = useAuthActions();
@@ -56,6 +57,7 @@ export function SignUpForm() {
 
   return (
     <form key="sign-up" onSubmit={onSubmit} className="space-y-4">
+      <GoogleButton />
       <div className="space-y-2">
         <Label htmlFor="su-email">Email</Label>
         <Input id="su-email" name="email" type="email" autoComplete="email" required />

@@ -5,6 +5,7 @@
   "scripts": {
     "setup": "node scripts/setup.mjs",
     "setup:stripe": "node scripts/setup-stripe.mjs",
+    "setup:google": "node scripts/setup-google.mjs",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

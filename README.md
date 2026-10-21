@@ -38,7 +38,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | Area | What's included |
 |---|---|
 | **Landing page** | A plain public home page at `/` (name and description from `lib/site.ts`) - replace it with your own marketing page |
-| **Auth pages** | `/signup` (open sign-up), `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code); email confirmation by code when email is set up |
+| **Auth pages** | `/signup` (open sign-up), `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code); email confirmation by code when email is set up; optional **Continue with Google** (`npm run setup:google`) |
 | **Auth gating** | `convex/authGate.ts` - open sign-up by default, or `SIGNUP_MODE=link` for signup links and pre-created accounts only; pre-created accounts can only be claimed with their own activation link; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
 | **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
@@ -52,7 +52,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
 | **Settings** | Profile, billing, password change, AI key management |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 227 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 243 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -185,8 +185,9 @@ Both modes support all of the flows below:
 4. **Sign-in (`/signin`).** Email + password. A wrong password and an unknown email get the same "Invalid email or password" answer, so sign-in never reveals which emails have accounts (see the wrapper in `convex/auth.ts`). In link mode, sign-up failures likewise all get one message.
 5. **Email confirmation.** Once email is set up (`AUTH_RESEND_KEY`), every password account must confirm its address with an 8-digit emailed code before it gets a session - new sign-ups, and any older account that never confirmed. Without email, nobody is asked. It switches on as soon as the key is set; no redeploy needed.
 6. **Password reset (`/reset`).** Needs email to be set up. The user enters their email, receives an 8-digit code (valid 15 minutes), and sets a new password. The page never reveals whether an email has an account. Without email configured, the page says so and tells the user to ask an admin, who can use **Set password** in the users table.
+7. **Continue with Google (optional).** Off until you run `npm run setup:google`, which walks you through creating a Google OAuth client and saves its ID and secret on Convex. The full guide, including going live, is [docs/google-sign-in.md](docs/google-sign-in.md). A Google sign-in creates a `user` account in open mode, and signs into an existing account only when that's safe (it has no password yet, or it confirmed its email); otherwise the person is asked to use their password.
 
-`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: existing accounts continue (revoked ones are rejected); a pre-created account is claimed only with its own activation token; a valid signup link creates an account; in open mode anyone else gets a new `user` account; otherwise it **fails closed**.
+`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: existing accounts continue (revoked ones are rejected); Google sign-ins follow the rules in step 7; a pre-created account is claimed only with its own activation token; a valid signup link creates an account; in open mode anyone else gets a new `user` account; otherwise it **fails closed**.
 
 ### The admin console
 
@@ -327,7 +328,7 @@ On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder
 - Manual: generate standing signup links in `/admin` - e.g. one per plan - and rotate them whenever you like. Works out of the box.
 - Automatic: point your payment platform's webhook at `/provision` with the shared secret.
 
-**7. Configure optional services** as you need them: Resend (email), OpenRouter (AI) - each is one env var. See the [reference](#environment-variable-reference).
+**7. Configure optional services** as you need them: Resend (email), OpenRouter (AI), Stripe (`npm run setup:stripe`), Google sign-in (`npm run setup:google`). See the [reference](#environment-variable-reference).
 
 **8. Keep the tests green.** `npm run test:run` should pass before and after every change; the existing tests double as documentation of how sign-in and access control behave.
 
@@ -338,7 +339,7 @@ Working with an AI coding assistant? `AGENTS.md` (also read by Claude Code via `
 These are the rules the codebase follows - future code (and AI assistants) should too. The same list is in `AGENTS.md`.
 
 - **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests sit next to their module (`convex/foo.test.ts`), component tests next to their component.
-- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the ones signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome`.
+- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the ones signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `signup.googleEnabled`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome`.
 - **Never link a sign-up to an existing account by email alone.** A pre-created account can only be claimed with its own activation token, which `convex/authGate.ts` checks and uses up. Any new way of pre-creating accounts must issue a token and present it the same way (see `admin.createUserAccount`).
 - **Write-only secrets.** Sensitive values (API keys, passwords) never reach the browser. Public queries return derived facts only (`last4`, booleans); raw values go through `internal*` functions.
 - **Cascade deletes.** New user-owned tables must be added to `deleteUserAccount` in `convex/admin.ts`. Deleting a user should leave nothing behind.
@@ -359,6 +360,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 | `JWT_PRIVATE_KEY`, `JWKS` | ✅ (auto) | Sign-in token keys - created by `npx @convex-dev/auth`; don't set by hand |
 | `AUTH_RESEND_KEY` | optional | Turns on email: password reset codes, email confirmation codes, and invite emails |
 | `AUTH_EMAIL_FROM` | optional | From address, e.g. `Your App <hello@yourdomain.com>` (defaults to Resend's test sender) |
+| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | optional | Turns on **Continue with Google**. Set both with `npm run setup:google` (see [docs/google-sign-in.md](docs/google-sign-in.md)) |
 | `SIGNUP_MODE` | optional | `open` (default: anyone can sign up) or `link` (signup links, webhook, and admin-created accounts only) |
 | `PROVISION_WEBHOOK_SECRET` | optional | Signing secret for `POST /provision`. Unset means the webhook rejects everything |
 | `OPENROUTER_API_KEY` | optional | The app's AI key, used for plans that include it (Pro by default); users' own keys take priority |
@@ -369,7 +371,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (227 tests)
+npm run test:run       # everything (243 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -439,7 +441,8 @@ convex/
 lib/site.ts            # your app's name and description
 lib/security/headers.ts # security response headers
 middleware.ts          # route protection
-scripts/setup.mjs      # `npm run setup`
+scripts/               # `npm run setup`, `setup:stripe`, `setup:google`
+docs/google-sign-in.md # step-by-step Google sign-in setup
 ```
 
 ## Troubleshooting

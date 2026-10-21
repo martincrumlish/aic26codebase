@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { EmailCodeStep } from "./EmailCodeStep";
+import { GoogleButton } from "./GoogleButton";
 
-export function SignInForm() {
+/** `googleReturn`: we're back from Google without a session (see GoogleButton). */
+export function SignInForm({ googleReturn = false }: { googleReturn?: boolean }) {
   const { signIn } = useAuthActions();
   const router = useRouter();
   const mode = useQuery(api.signup.mode, {});
@@ -48,6 +50,13 @@ export function SignInForm() {
 
   return (
     <form key="sign-in" onSubmit={onPassword} className="space-y-4">
+      {googleReturn && (
+        <p role="status" className="rounded-lg bg-muted px-3 py-2 text-sm">
+          Google sign-in didn&apos;t go through. If this email already has an account, sign in with your
+          password below.
+        </p>
+      )}
+      <GoogleButton />
       <div className="space-y-2">
         <Label htmlFor="pw-email">Email</Label>
         <Input id="pw-email" name="email" type="email" autoComplete="email" required />

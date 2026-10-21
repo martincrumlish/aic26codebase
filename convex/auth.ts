@@ -1,4 +1,5 @@
 // convex/auth.ts
+import Google from "@auth/core/providers/google";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { convexAuth } from "@convex-dev/auth/server";
 import { makeFunctionReference, type GenericActionCtx } from "convex/server";
@@ -96,8 +97,18 @@ const guardedPassword = {
   },
 } as typeof password;
 
+// "Continue with Google". Optional: it does nothing (and the button stays
+// hidden) until AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET are set - run
+// `npm run setup:google`. authGate.ts decides who may sign in this way.
+const google = Google({
+  // Pass Google's own "is this email verified" flag through to authGate.
+  profile(p) {
+    return { id: p.sub, name: p.name, email: p.email, image: p.picture, emailVerified: p.email_verified === true };
+  },
+});
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [guardedPassword],
+  providers: [guardedPassword, google],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
       // Static import (was dynamic) — Convex functions do not support dynamic imports.
