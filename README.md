@@ -1,11 +1,10 @@
 # AIC26 Codebase - Next.js + Convex SaaS Starter
 
-A boilerplate for building **SaaS apps with controlled signup**. Users come in through the doors you open - a signup link per plan, a payment-webhook that provisions accounts on purchase, or a direct invite - never through anonymous open registration. Clone it (or use it as a GitHub template), run one setup command, and you have a working app with authentication, role-based access control, an admin console, provisioning webhooks, transactional email, and bring-your-own-key AI support - all tested, all typed, ready for you to drop your actual product into.
+A starter for building **SaaS apps with controlled signup**. Users come in through the doors you open - a signup link per plan, a payment webhook that creates accounts on purchase, or an account an admin adds by hand - never through anonymous open registration. Clone it (or use it as a GitHub template), run one setup command, and you have a working app with sign-in, an admin console, user management, provisioning webhooks, password reset, transactional email, and bring-your-own-key AI support - all tested, all typed, ready for you to drop your actual product into.
 
-This is not a demo. The patterns are the hardened kind: token-gated signup that fails closed, write-only secret storage, cascade deletes, and a Convex backend where every function starts with an access check.
+This is not a demo. The patterns are the hardened kind: signup that fails closed, write-only secret storage, cascade deletes, no account enumeration, and a backend where every function starts with an access check.
 
 - **Repo:** https://github.com/martincrumlish/aic26codebase
-- **Convex dashboard:** https://dashboard.convex.dev
 - **Deploys to:** Vercel (frontend) + Convex Cloud (backend)
 
 ---
@@ -13,14 +12,14 @@ This is not a demo. The patterns are the hardened kind: token-gated signup that 
 ## Table of contents
 
 - [What you get](#what-you-get)
-- [The stack](#the-stack)
+- [Services and stack](#services-and-stack)
 - [Quickstart: running it locally](#quickstart-running-it-locally)
 - [How the app works](#how-the-app-works)
-  - [The user model: operator / creator / member](#the-user-model-operator--creator--member)
+  - [Roles: admin and user](#roles-admin-and-user)
   - [Auth flows](#auth-flows)
   - [The admin console](#the-admin-console)
   - [Provisioning webhook](#provisioning-webhook)
-  - [Transactional email](#transactional-email)
+  - [Email](#email)
   - [BYOK AI (OpenRouter)](#byok-ai-openrouter)
 - [Using this as the base for a new project](#using-this-as-the-base-for-a-new-project)
 - [Project conventions](#project-conventions)
@@ -36,28 +35,39 @@ This is not a demo. The patterns are the hardened kind: token-gated signup that 
 
 | Area | What's included |
 |---|---|
-| **Auth pages** | `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (operator/webhook-provisioned accounts), `/reset` (magic-link reset) - split-panel UI |
-| **Auth gating** | `convex/authGate.ts` - signup is **token-gated** and fails closed: no valid signup link or pre-seeded row → no account, revoked users are locked out everywhere |
-| **Roles** | `operator` (platform admin) / `creator` / `member` on the users table, with `require*` helpers in `convex/access.ts` |
-| **Admin console** (`/admin`) | Platform stats, creators table (revoke / hard-delete with typed confirmation), signup-link generator (with optional email delivery), add-user dialog, webhook config panel |
-| **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from external systems (your payment platform, a partner API, Zapier…) |
-| **Email** | `convex/email.ts` - one fail-soft module wrapping the Resend REST API; the app works fine with email unconfigured and features that need it hide themselves |
-| **BYOK AI** | `convex/ai.ts` - per-user OpenRouter API keys, live-validated before saving, stored write-only (clients can only ever read `last4`), with app-level fallback key |
-| **App shell** | Sidebar layout with role-aware nav + account menu |
-| **Dashboard** | Intentionally a placeholder - it demonstrates the loading-skeleton pattern and is where your product goes |
+| **Landing page** | A plain public home page at `/` (name and description from `lib/site.ts`) - replace it with your own marketing page |
+| **Auth pages** | `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code) |
+| **Auth gating** | `convex/authGate.ts` - signup only works with a valid signup link or a pre-created account, and fails closed otherwise; revoked users are locked out everywhere |
+| **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
+| **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
+| **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from your payment platform or any other system |
+| **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
+| **BYOK AI** | Per-user OpenRouter API keys, verified before saving, stored write-only (the browser only ever sees the last 4 characters), with an optional app-wide fallback key |
+| **App shell** | Sidebar on desktop; a top bar with a slide-out menu on phones; account menu with settings, dark/light mode, and sign-out |
+| **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
 | **Settings** | Profile, password change, AI key management |
-| **Security** | Route-protection middleware, response-header hardening (`lib/security/headers.ts`), no secrets in the DB schema (env-var refs only) |
-| **Tests** | 83 passing tests: Convex backend (convex-test, edge runtime) + React components (Testing Library, jsdom) |
+| **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
+| **Tests** | 112 passing tests: backend (convex-test) + React components (Testing Library) |
 
-## The stack
+## Services and stack
+
+**Services you sign up for** (all have free tiers):
+
+| Service | What it does here | Needed? |
+|---|---|---|
+| [GitHub](https://github.com) | Where your copy of the code lives | Yes |
+| [Convex](https://www.convex.dev) | Database, backend functions, sign-in, webhooks, file storage | Yes - to run it at all |
+| [Vercel](https://vercel.com) | Hosts the website when you go live | Only to deploy |
+| [Resend](https://resend.com) | Sends email (password reset codes, invite emails) | Optional |
+| [OpenRouter](https://openrouter.ai) | AI models, if you add AI features | Optional |
+
+**Code stack:**
 
 - **[Next.js 16](https://nextjs.org)** - App Router, React 19, TypeScript, Turbopack
-- **[Convex](https://convex.dev)** - reactive database, server functions, HTTP endpoints, cron-capable scheduler. The entire backend lives in `convex/`
-- **[Convex Auth](https://labs.convex.dev/auth)** - password sign-in (token-gated signup) + magic-link via Resend
-- **[Tailwind CSS 4](https://tailwindcss.com)** + shadcn-style components built on [Base UI](https://base-ui.com) primitives (`components/ui/`)
+- **[Convex](https://convex.dev)** - the entire backend lives in `convex/`; there's no separate API server, ORM, migration tool, or session store
+- **[Convex Auth](https://labs.convex.dev/auth)** - email + password sign-in, with password reset by emailed code
+- **[Tailwind CSS 4](https://tailwindcss.com)** + shadcn-style components on [Base UI](https://base-ui.com) (`components/ui/`), [next-themes](https://github.com/pacocoursey/next-themes) for dark mode, [Lucide](https://lucide.dev) icons, [Sonner](https://sonner.emilkowal.ski) toasts
 - **[Vitest](https://vitest.dev)** + [convex-test](https://www.npmjs.com/package/convex-test) + Testing Library
-
-There is no separate API server, no ORM, no migration tool, and no session store to run - Convex is all of it.
 
 ---
 
@@ -125,7 +135,7 @@ npm run dev
 
 This starts the app on your computer and keeps running (leave the terminal open; press Ctrl+C when you want to stop it). Now open the activation link from step 4 in your browser, set a password, and sign in.
 
-You're the **operator** (the admin). An **Admin** item appears in the sidebar - from there you can generate signup links, add users directly, and see the provisioning-webhook settings. That's the whole loop; everything else (email, AI, webhooks) is optional and off until you configure it.
+You're the **admin**. An **Admin** item appears in the sidebar - from there you can generate signup links, add users, and manage everyone's accounts. That's the whole loop; everything else (email, AI, webhooks) is optional and off until you configure it.
 
 <details>
 <summary>Prefer to run the setup steps by hand instead of <code>npm run setup</code>?</summary>
@@ -134,8 +144,8 @@ You're the **operator** (the admin). An **Admin** item appears in the sidebar - 
 npx convex dev --once                                # create deployment, write .env.local
 npx @convex-dev/auth                                 # JWT keys
 npx convex env set SITE_URL http://localhost:3000
-npx convex env set OPERATOR_EMAIL you@example.com
-npx convex run seed:bootstrapOperator                # prints your activationToken
+npx convex env set ADMIN_EMAIL you@example.com
+npx convex run seed:bootstrapAdmin                   # prints your activationToken
 ```
 
 </details>
@@ -144,46 +154,46 @@ npx convex run seed:bootstrapOperator                # prints your activationTok
 
 ## How the app works
 
-### The user model: operator / creator / member
+### Roles: admin and user
 
-The `users` table (extended from Convex Auth's base table in `convex/schema.ts`) carries the app's access model:
+The `users` table (in `convex/schema.ts`) carries two fields that control access:
 
-- **`operator`** - the platform admin. Sees `/admin`, provisions users, generates invite links, revokes/deletes accounts. Seeded once via `seed:bootstrapOperator`; cannot be deleted through the admin UI.
-- **`creator`** - your primary customer tier. Invited by the operator (link or direct add) or provisioned by webhook.
-- **`member`** - a second tier, optionally scoped to a creator via `creatorId` (for "creator invites their own users" products). The plumbing is in place (`creatorScopeId` on tokens, `by_creator` index); build the UI when your product needs it.
+- **`role`: `"admin"` or `"user"`.** Admins see `/admin` and manage everyone. Everyone who signs up through a signup link or the payment webhook is a `user`. Admin rights are only ever granted by another admin (**Make admin** in the users table) or by the first-run seed.
+- **`status`: `"active"` or `"revoked"`.** Revoking locks the account out of every function immediately, without deleting anything; **Restore** undoes it.
 
-Users also carry `status: "active" | "revoked"`. Revoking flips a switch that locks the account out of every function immediately - no session hunting.
+To keep one admin from locking out another, an admin can't revoke, delete, or set the password of another admin until that admin's rights are removed, and nobody can change their own role.
 
-> ⚠️ `users.role` and `users.status` are load-bearing: `convex/authGate.ts` and every `require*` helper depend on them. Keep their semantics intact when you extend the schema.
+> ⚠️ `role` and `status` are load-bearing: `convex/authGate.ts` and every `require*` helper depend on them. Keep their meaning intact when you extend the schema. If your product needs more tiers (say, paid plans), add a separate field such as `plan` rather than new roles.
 
 ### Auth flows
 
-There is **no anonymous open signup** - every path to an account goes through a token or an operator, so you always control who gets in and as what role:
+There is **no anonymous open signup** - every account starts with a signup link, a webhook, or an admin, so you always control who gets in:
 
-1. **Signup link (`/join/<token>`)** - the operator generates a signup link in `/admin` (optionally locked to an email). The visitor sets email + password; `authGate` only lets the signup through if the token validates. Links are **standing by default - no expiry, no use limit** - so one link can serve as the signup URL for a whole plan (e.g. behind your checkout's thank-you page). You rotate a link whenever you want: revoke it in the admin's Signup-links list and generate a fresh one. For one-off or time-boxed invites, `createSignupToken` also accepts `maxUses` and `ttlDays`.
-2. **Activation (`/activate/<token>`)** - for accounts that already exist as rows (seeded operator, webhook-provisioned users, admin "add user"). The flow consumes the activation token, then sets the password against the pre-seeded row.
-3. **Sign-in (`/signin`)** - plain email + password.
-4. **Reset (`/reset`)** - magic-link via Resend (requires `AUTH_RESEND_KEY`; the page explains itself if email isn't configured).
+1. **Signup link (`/join/<token>`).** An admin generates one in `/admin` (optionally locked to one email address). The visitor picks an email and password; `authGate` only lets the signup through if the link is valid. Links are **standing by default - no expiry, no use limit** - so one link can be the signup URL for a whole plan (for example, behind your checkout's thank-you page). Rotate a link whenever you like: revoke it in the Signup links list and generate a fresh one. For a one-off or time-limited invite, `admin.createSignupLink` also accepts `maxUses` and `ttlDays`.
+2. **Activation (`/activate/<token>`).** For accounts that were created for someone (the first admin, or a webhook purchase). The person follows their activation link and sets a password.
+3. **Sign-in (`/signin`).** Email + password.
+4. **Password reset (`/reset`).** Needs email to be set up. The user enters their email, receives an 8-digit code (valid 15 minutes), and sets a new password. The page never reveals whether an email has an account. Without email configured, the page says so and tells the user to ask an admin, who can use **Set password** in the users table.
 
-The gate itself is `convex/authGate.ts`, wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: revoked users are rejected; existing rows just sign in; new signups require a valid token or a pre-seeded row; anything else **fails closed**.
+`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: revoked users are rejected; existing accounts sign in; new signups need a valid link or a pre-created account; anything else **fails closed**.
 
 ### The admin console
 
-`/admin` (operator-only, enforced server-side by `requireOperator` on every query/mutation it calls):
+`/admin` is admin-only - enforced on the server by `requireAdmin` in every function it calls, not just by hiding the page.
 
-- **Stats cards** - creators, members, active invite tokens.
-- **Creators table** - revoke (soft, reversible) or delete (hard, typed-confirmation). Delete cascades through all Convex Auth records (accounts, sessions, refresh tokens, verification codes) *and* app-owned tables - see [conventions](#project-conventions).
-- **Generate creator link** - creates a standing signup link (no expiry, unlimited signups) and gives you a copyable `/join/…` URL. If email is configured, a checkbox appears to send the invite directly to the entered address.
-- **Signup links list** - every active link with its signup count, copy button, and **Revoke**. Rotation = revoke the old link, generate a new one.
-- **Add user account** - creates an account with a password immediately (no invite dance) via a pre-seed + `createAccount` action.
-- **Provisioning webhook panel** - shows the endpoint URL and whether the signing secret is set; records secret rotations.
+- **Stats** - number of users, admins, and active signup links.
+- **Signup links** - every active link with its signup count, **Copy**, and **Revoke**.
+- **Users** - everyone, with their role and status. For each user: **Make admin** / **Remove admin**, **Set password** (signs them out everywhere), **Revoke** / **Restore**, and **Delete** (type the email to confirm). Delete removes the account, all its sign-in records, and all its app data - see [conventions](#project-conventions).
+- **Generate signup link** - creates a standing link and gives you the URL to copy. If email is configured, a checkbox lets you email it straight to an address.
+- **Add user account** - creates an account with a password you choose, so the person can sign in immediately.
+- **Provisioning webhook** - the endpoint URL and whether its signing secret is set.
 
 ### Provisioning webhook
 
-`POST https://<your-deployment>.convex.site/provision` lets external systems create users - the typical use is your payment platform's "new sale" webhook.
+`POST https://<your-deployment>.convex.site/provision` lets another system create users - typically your payment platform's "new sale" webhook.
 
-- **Signature:** HMAC-SHA256 of the raw body with `PROVISION_WEBHOOK_SECRET`, sent in the `x-app-signature` header. Unsigned/mis-signed requests are rejected (fails closed if the secret env var is unset).
-- **Idempotent:** events carry an `externalId`; replays return the original result instead of double-provisioning.
+- **Signature:** HMAC-SHA256 of the raw request body with `PROVISION_WEBHOOK_SECRET`, hex-encoded, in the `x-app-signature` header. Unsigned or wrongly signed requests are rejected, and so is everything if the secret isn't set.
+- **Idempotent:** each event carries an `externalId`; a repeat delivery returns the original result instead of creating a second account.
+- **Always creates a `user`:** any `role` in the payload is ignored, so a leaked webhook secret can't create admins.
 - **Body:**
 
 ```json
@@ -191,12 +201,11 @@ The gate itself is `convex/authGate.ts`, wired into Convex Auth's `createOrUpdat
   "externalId": "evt_12345",
   "source": "stripe",
   "type": "purchase.completed",
-  "email": "customer@example.com",
-  "role": "creator"
+  "email": "customer@example.com"
 }
 ```
 
-The endpoint creates (or finds) the user row and issues a 7-day activation token, stored in `provisioningTokens`. The response is deliberately minimal (`{ok, deduped}`) - it does not leak the token to the caller. Delivery is yours to wire: the natural move is to have `ingestEvent` schedule `internal.email.send` with the `/activate/<token>` link once you've configured Resend, or surface pending activations in the admin console.
+The endpoint creates (or finds) the account and a 7-day activation link, stored in `provisioningTokens`. The response is deliberately minimal (`{ok, deduped}`) so the link never leaks to the caller. Delivering it is up to you: the natural move is to have `ingestEvent` email the `/activate/<token>` link via `internal.email.send` once email is configured.
 
 Set the secret with:
 
@@ -204,157 +213,157 @@ Set the secret with:
 npx convex env set PROVISION_WEBHOOK_SECRET <random-string>
 ```
 
-### Transactional email
+### Email
 
-All outbound email goes through **one module**: `convex/email.ts`, a thin wrapper over the Resend REST API.
+Email is optional. With `AUTH_RESEND_KEY` unset, the app works normally: the invite-email checkbox is hidden, and the reset page explains that email isn't set up.
 
-- **Fail-soft by contract:** `internal.email.send` never throws. No `AUTH_RESEND_KEY` → `{sent:false, reason:"no-key"}`. Resend error → `{sent:false, reason:"resend-<status>"}`. Network failure → `{sent:false, reason:"network"}`. Callers treat email as best-effort.
-- **Self-hiding UI:** the `emailEnabled` query tells the frontend whether email is configured; features that depend on it (like the invite-email checkbox) don't render otherwise.
-- To enable: `npx convex env set AUTH_RESEND_KEY re_…` and optionally `AUTH_EMAIL_FROM "Your App <hello@yourdomain.com>"`. The same key powers magic-link sign-in/reset.
-
-Add your own emails by calling `internal.email.send` from any action - don't scatter `fetch("https://api.resend.com/…")` calls around the codebase.
+- **Everything goes through one place:** `convex/lib/resend.ts` is the only code that talks to Resend. App code sends email with `internal.email.send`, which **never throws**: it returns `{sent: false, reason}` (`"no-key"`, `"resend-<status>"`, or `"network"`) so a failed email can't break the action that sent it.
+- **Password reset codes** go through the same helper but fail loudly, because the user is waiting for the code.
+- **To enable:** `npx convex env set AUTH_RESEND_KEY re_...` and optionally `npx convex env set AUTH_EMAIL_FROM "Your App <hello@yourdomain.com>"` (the domain must be verified in Resend).
 
 ### BYOK AI (OpenRouter)
 
-`convex/ai.ts` implements per-user "bring your own key" for [OpenRouter](https://openrouter.ai), so users can pay for their own AI usage:
+`convex/ai.ts` lets each user bring their own [OpenRouter](https://openrouter.ai) key, so they pay for their own AI usage:
 
-- **Settings → AI card**: paste a key → **Save & verify**. The key is validated with a live call to OpenRouter's authenticated `/api/v1/key` endpoint *before* saving (note: `/api/v1/models` is public and can't validate keys - don't "simplify" this).
-- **Write-only storage**: the raw key lives in the `userApiKeys` table and is only readable through `internal.ai.getOpenRouterKeyForUser` - an internal query no client can call. Public reads (`getAiStatus`) return `{enabled, source: "own"|"app", last4}` and nothing else.
-- **Resolution order** for any AI feature you build: the user's own key → the app-level `OPENROUTER_API_KEY` env var → AI disabled.
-
-To offer app-paid AI to everyone, just set `npx convex env set OPENROUTER_API_KEY sk-or-…`; users who add their own key override it.
+- **Settings > AI**: paste a key, click **Save & verify**. The key is checked with a live call to OpenRouter's authenticated `/api/v1/key` endpoint before it's saved (`/api/v1/models` is public and can't validate keys - don't "simplify" this).
+- **Write-only storage**: the raw key lives in the `userApiKeys` table and can only be read by `internal.ai.getOpenRouterKeyForUser`, which the browser can't call. The public `getAiStatus` returns `{enabled, source: "own" | "app", last4}` and nothing more.
+- **Which key gets used** by any AI feature you build: the user's own key, then the app-wide `OPENROUTER_API_KEY` env var, otherwise AI is off.
 
 ---
 
 ## Using this as the base for a new project
 
-The intended workflow: **use the GitHub template** (or clone and re-init) → rename → wire a fresh Convex project → replace the placeholder surfaces → build your product on the dashboard.
+The intended workflow: **use the GitHub template** (or clone and re-init), rename it, wire a fresh Convex project, replace the placeholders, and build your product on the dashboard.
 
 **1. Get your own copy.**
-On GitHub, click **Use this template** (or `git clone` + delete `.git` + `git init` if you prefer a clean history).
+On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder, and `git init` for a clean history).
 
 **2. Rename the app.**
-- `package.json` → `name`
-- `app/layout.tsx` → metadata title
-- `public/brand/` → replace `small-transparent.png` (sidebar logo, white-on-transparent works best on the dark sidebar), `mid-transparent.png`, and `auth-bg.png` (the sign-in split-panel background)
+- `lib/site.ts` - your app's name and one-line description (used in the browser tab, the landing page, and search results)
+- `package.json` - `name`
+- `public/brand/` - replace `small-transparent.png` (sidebar logo; white on transparent suits the dark sidebar), `mid-transparent.png` (sign-in page logo), and `auth-bg.png` (sign-in page background)
 
-**3. Wire a fresh Convex project** - follow the [Quickstart](#quickstart-running-it-locally) (`npx convex dev --once` creates a new project when you pick "create new").
+**3. Wire a fresh Convex project** - follow the [Quickstart](#quickstart-running-it-locally).
 
-**4. Replace the dashboard.**
-`app/(app)/dashboard/page.tsx` is a deliberate placeholder that demonstrates the loading-skeleton pattern. Swap it for your primary resource - a list, a board, an editor, whatever your product is.
+**4. Replace the placeholders.**
+- `components/landing/Landing.tsx` - the public home page
+- `app/(app)/dashboard/page.tsx` - your main screen, keeping its loading-skeleton pattern
 
-**5. Add your own tables.** For every owner-keyed table you add:
+**5. Add your own tables.** For every table whose rows belong to a user:
 - Define it in `convex/schema.ts` **with an index on the owner field** (e.g. `.index("by_owner", ["ownerId"])`).
-- Start every query/mutation touching it with the right `require*` helper from `convex/access.ts`.
-- Add it to the **delete cascade** in `convex/operator.ts` → `deleteUserAccount` (section 1, before the auth records), including freeing any `ctx.storage` blobs it references. There's a `userApiKeys` example right there to copy.
+- Start every function that touches it with `requireUser` or `requireAdmin` from `convex/access.ts`, and check the row belongs to the caller.
+- Add it to the **delete cascade** in `deleteUserAccount` in `convex/admin.ts` (section 1, before the auth records), including freeing any files it stores. There's a `userApiKeys` example right there to copy.
 
-**6. Decide your provisioning story.**
-- Manual: operator generates standing signup links from `/admin` - e.g. one per plan - and rotates them at will. Works out of the box.
-- Automated: point your payment platform's webhook at `/provision` with the shared secret.
+**6. Decide how people get accounts.**
+- Manual: generate standing signup links in `/admin` - e.g. one per plan - and rotate them whenever you like. Works out of the box.
+- Automatic: point your payment platform's webhook at `/provision` with the shared secret.
 
-**7. Configure optional services** as you need them: Resend (email), OpenRouter (AI), each a single env var away - see [reference](#environment-variable-reference).
+**7. Configure optional services** as you need them: Resend (email), OpenRouter (AI) - each is one env var. See the [reference](#environment-variable-reference).
 
-**8. Keep the tests green.** `npm run test:run` should pass before and after every change; the existing tests double as executable documentation of the auth/gating behavior.
+**8. Keep the tests green.** `npm run test:run` should pass before and after every change; the existing tests double as documentation of how sign-in and access control behave.
+
+Working with an AI coding assistant? `AGENTS.md` (also read by Claude Code via `CLAUDE.md`) gives it this project's rules.
 
 ## Project conventions
 
-These are the rules the codebase already follows - future code (and future Claude/AI sessions) should too:
+These are the rules the codebase follows - future code (and AI assistants) should too. The same list is in `AGENTS.md`.
 
-- **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests live next to the module (`convex/foo.test.ts`), component tests next to the component.
-- **Access checks first.** Every Convex query/mutation/action begins with a `require*` helper (`requireUserId`, `requireUser`, `requireCreator`, `requireOperator`) from `convex/access.ts`. Actions (which have no `db`) gate via an internal query/mutation that does - see `email.assertOperator` or `operator.seedUserForAccount`.
-- **Write-only secrets.** Sensitive values (API keys, password hashes) never travel to the client. Public queries return derived metadata only (`last4`, booleans); raw values go through `internal*` functions.
-- **Cascade deletes.** New owner-keyed tables must be added to `deleteUserAccount` in `convex/operator.ts`. A user delete should leave zero orphaned rows.
-- **Indexes, not scans.** Convex queries use `.withIndex(...)`; unbounded `.collect()` on growable tables is a bug.
-- **Typecheck before commit.** `npx tsc --noEmit` (delete `.next/types` and `.next/dev/types` first if Next generated them; don't pipe tsc's output - pipes mask the exit code).
-- **No secrets in git.** `.env.local` is gitignored; deployment secrets live as Convex env vars, and the DB stores env-var *names* (`signingSecretRef`), never values.
-- **Fail closed on auth, fail soft on email.** Anything guarding access rejects when uncertain; anything sending email degrades gracefully.
+- **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests sit next to their module (`convex/foo.test.ts`), component tests next to their component.
+- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the three that signed-out pages need: `provisioning.validateToken`, `provisioning.consumeActivationToken`, and `passwordReset.available`.
+- **Write-only secrets.** Sensitive values (API keys, passwords) never reach the browser. Public queries return derived facts only (`last4`, booleans); raw values go through `internal*` functions.
+- **Cascade deletes.** New user-owned tables must be added to `deleteUserAccount` in `convex/admin.ts`. Deleting a user should leave nothing behind.
+- **Indexes, not scans.** Convex queries use `.withIndex(...)`; an unbounded `.collect()` on a table that can grow is a bug.
+- **Typecheck before commit.** `npx tsc --noEmit` (delete `.next/types` and `.next/dev/types` first if Next generated them; don't pipe the output - pipes hide the exit code).
+- **No secrets in git.** `.env.local` is gitignored; secrets live in Convex env vars, and the database stores env-var *names*, never values.
+- **Fail closed on access, fail soft on email.** Anything guarding access refuses when unsure; email failures never break the action that sent the email.
 
 ## Environment variable reference
 
-All of these are **Convex deployment env vars** (`npx convex env set NAME value`), not `.env.local` entries - the backend reads them, and per-deployment separation (dev vs prod) comes free.
+All of these are **Convex deployment env vars** (`npx convex env set NAME value`), not `.env.local` entries - the backend reads them, and dev and prod deployments each have their own.
 
 | Var | Required | Purpose |
 |---|---|---|
-| `SITE_URL` | ✅ | Origin used in auth redirects and emailed links (`http://localhost:3000` in dev, your real domain in prod) |
-| `OPERATOR_EMAIL` | ✅ (once) | Email the operator seed (`seed:bootstrapOperator`) provisions |
-| `JWT_PRIVATE_KEY`, `JWKS` | ✅ (auto) | Auth token signing - created by `npx @convex-dev/auth`, don't set by hand |
-| `AUTH_RESEND_KEY` | optional | Enables all email: magic-link sign-in/reset + `convex/email.ts`. Unset → email features hide themselves |
-| `AUTH_EMAIL_FROM` | optional | From-address, e.g. `Your App <hello@yourdomain.com>` (defaults to Resend's test sender) |
-| `PROVISION_WEBHOOK_SECRET` | optional | HMAC secret for `POST /provision`. Unset → webhook rejects everything |
-| `OPENROUTER_API_KEY` | optional | App-level AI fallback key; users' own keys take precedence |
+| `SITE_URL` | ✅ | The app's address, used in sign-in redirects and emailed links (`http://localhost:3000` in dev, your real domain in prod) |
+| `ADMIN_EMAIL` | ✅ (once) | Email for the first admin, created by `seed:bootstrapAdmin` |
+| `JWT_PRIVATE_KEY`, `JWKS` | ✅ (auto) | Sign-in token keys - created by `npx @convex-dev/auth`; don't set by hand |
+| `AUTH_RESEND_KEY` | optional | Turns on email: password reset codes and invite emails |
+| `AUTH_EMAIL_FROM` | optional | From address, e.g. `Your App <hello@yourdomain.com>` (defaults to Resend's test sender) |
+| `PROVISION_WEBHOOK_SECRET` | optional | Signing secret for `POST /provision`. Unset means the webhook rejects everything |
+| `OPENROUTER_API_KEY` | optional | App-wide AI key; users' own keys take priority |
 
-`.env.local` (written by `npx convex dev`, gitignored) holds only the pointers: `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`.
+`.env.local` (written by `npx convex dev`, gitignored) holds only the addresses of your dev deployment: `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`.
 
 ## Testing
 
 ```bash
-npm run test:run       # everything (83 tests)
-npm run test:convex    # backend only - convex-test in the edge runtime
-npm run test:ui        # components only - Testing Library in jsdom
+npm run test:run       # everything (112 tests)
+npm run test:convex    # backend only
+npm run test:ui        # components only
 npm run test           # watch mode
 ```
 
-Patterns worth stealing:
+Patterns worth copying:
 
-- Backend tests build a real in-memory Convex with `convexTest(schema, modules)` and act as a signed-in user via `t.withIdentity({ subject: userId })`.
-- External HTTP (OpenRouter, Resend) is stubbed with `vi.stubGlobal("fetch", …)`; env vars with `vi.stubEnv(...)` - no network in tests.
-- Component tests mock `convex/react` hooks (`useQuery` / `useMutation` / `useAction`) and assert on real user interactions.
+- Backend tests run a real in-memory Convex with `convexTest(schema, modules)` and act as a signed-in user via `t.withIdentity({ subject: userId })`.
+- Sign-in flows are tested end to end through the real `auth:signIn` action - see `convex/passwordReset.test.ts`, which uses `vitest/authEnv.ts` to supply test signing keys.
+- External HTTP (OpenRouter, Resend) is stubbed with `vi.stubGlobal("fetch", ...)` and env vars with `vi.stubEnv(...)`, so tests never touch the network.
+- Component tests mock the `convex/react` hooks and drive the UI the way a user would.
 
 ## Deploying to production
 
 **Convex** and **Vercel** pair like this:
 
-1. Push to GitHub, import the repo in [Vercel](https://vercel.com/new).
-2. Set the Vercel **build command** to:
-   ```
-   npx convex deploy --cmd 'npm run build'
-   ```
-   This deploys your Convex functions to the **prod** deployment and builds Next with the prod Convex URL baked in.
-3. In the Convex dashboard → Settings → **Deploy keys**, generate a key and add it to Vercel env as `CONVEX_DEPLOY_KEY`.
-4. Set prod env vars on the **prod** Convex deployment (dashboard → Settings → Environment variables, or `npx convex env set --prod`): at minimum `SITE_URL=https://your-domain.com`, plus JWT keys (`npx @convex-dev/auth --prod`) and whichever optional vars you use.
-5. Seed the prod operator once: `npx convex run seed:bootstrapOperator --prod`, then visit `https://your-domain.com/activate/<token>`.
+1. Push your repo to GitHub and import it in [Vercel](https://vercel.com/new).
+2. The build command (`npx convex deploy --cmd 'npm run build'`) is already set in `vercel.json`. It deploys your backend to your **prod** Convex deployment and builds the site against it.
+3. In the Convex dashboard, open **Settings > Deploy keys**, generate a production key, and add it in Vercel as the env var `CONVEX_DEPLOY_KEY`.
+4. Set env vars on the **prod** Convex deployment (dashboard **Settings > Environment variables**, or `npx convex env set --prod ...`): at minimum `SITE_URL=https://your-domain.com` and `ADMIN_EMAIL`, plus the sign-in keys (`npx @convex-dev/auth --prod`) and any optional vars you use.
+5. Create the production admin once: `npx convex run seed:bootstrapAdmin --prod`, then open `https://your-domain.com/activate/<token>` with the token it prints.
 
-Dev and prod are fully separate deployments with separate data and env vars - your local `npx convex dev` never touches production.
+Dev and prod are completely separate, with their own data and env vars - running the app locally never touches production.
 
 ## Directory map
 
 ```
 app/
-  (app)/               # authenticated shell: sidebar layout + pages
-    admin/             #   operator console
-    dashboard/         #   ← replace with your product
+  page.tsx             # "/" - landing page (signed in: redirects to dashboard)
+  (app)/               # signed-in pages, wrapped in the app shell
+    admin/             #   admin console
+    dashboard/         #   <- replace with your product
     settings/          #   profile / password / AI key
-  activate/[token]/    # activation flow (pre-seeded accounts)
-  join/[token]/        # signup-link flow
-  signin/  reset/      # sign-in and magic-link reset
-  ConvexClientProvider.tsx
+  activate/[token]/    # activation (accounts created for someone)
+  join/[token]/        # signup via link
+  signin/  reset/      # sign-in and password reset
 components/
-  admin/               # admin console widgets (tables, dialogs)
-  auth/                # auth forms (split-panel UI)
-  settings/            # settings cards (Profile, Security, AI)
-  ui/                  # shadcn-style primitives (Base UI)
+  admin/               # admin console (users table, signup links, dialogs)
+  app-shell/           # sidebar, phone menu, account menu
+  auth/                # sign-in, signup, activation, reset forms
+  landing/             # <- replace with your landing page
+  settings/            # settings cards (profile, password, AI)
+  ui/                  # shadcn-style building blocks (Base UI)
 convex/
-  schema.ts            # all tables - start here to understand the data
-  access.ts            # require* helpers - every function starts with one
-  auth.ts  authGate.ts # Convex Auth config + token-gated signup
+  schema.ts            # every table - start here to understand the data
+  access.ts            # requireUser / requireAdmin - every function starts with one
+  auth.ts  authGate.ts # sign-in setup + who's allowed to sign up
+  admin.ts             # admin console backend + user delete cascade
+  passwordReset.ts     # reset codes by email
+  provisioning.ts      # signup/activation links: validate and consume
+  provisionHttp.ts     # POST /provision webhook
+  email.ts  lib/resend.ts  # sending email
   ai.ts                # BYOK OpenRouter keys
-  email.ts             # the one email module (Resend, fail-soft)
-  operator.ts          # admin console backend + user delete cascade
-  provisioning.ts      # tokens: create / validate / consume
-  provisionHttp.ts     # POST /provision webhook (HMAC)
-  seed.ts              # operator bootstrap
-  *.test.ts            # backend tests, colocated
-lib/security/headers.ts # response-header hardening
-middleware.ts            # route protection
-vitest.config.ts         # two projects: convex (edge) + ui (jsdom)
+  seed.ts              # first-admin bootstrap
+  *.test.ts            # backend tests, next to their modules
+lib/site.ts            # your app's name and description
+lib/security/headers.ts # security response headers
+middleware.ts          # route protection
+scripts/setup.mjs      # `npm run setup`
 ```
 
 ## Troubleshooting
 
-- **"Not signed in" / redirected to `/signin` right after activating** - the auth cookie can lag the redirect by a beat; just sign in normally, the account is created.
-- **Activation or sign-in silently does nothing** - if another app built from this template previously ran on the same localhost port, the browser holds stale auth cookies for a different Convex deployment. Clear site cookies for localhost (or use a private window) and retry.
-- **`npx tsc --noEmit` errors about `convex/_generated`** - regenerate the API types with `npx convex codegen` (they drift when you add/remove Convex modules without a running `convex dev`).
-- **Replaced an image in `public/` but the browser shows the old one** - Next's dev image-optimizer cache lives at `.next/dev/cache/images`; delete it and hard-reload.
-- **Magic links / invite emails not arriving** - check `AUTH_RESEND_KEY` is set on the deployment (`npx convex env list`) and that the from-address domain is verified in Resend.
-- **Webhook returns 401** - the signature must be HMAC-SHA256 of the *raw request body* using `PROVISION_WEBHOOK_SECRET`, hex-encoded, in the `x-app-signature` header.
-- **Locked out of the operator account** - `npx convex run seed:bootstrapOperator` is idempotent; if the operator exists but you lost the password, use `/reset` (email must be configured) or issue a fresh activation token from the Convex dashboard by inserting a `provisioningTokens` row.
+- **Redirected to `/signin` right after activating** - the sign-in cookie can lag the redirect by a moment; just sign in normally, your account was created.
+- **Activation or sign-in silently does nothing** - if another app built from this template ran on the same localhost port before, your browser holds stale sign-in cookies for a different backend. Clear site data for localhost (or use a private window) and retry.
+- **`npx tsc --noEmit` errors about `convex/_generated`** - regenerate the types with `npx convex dev --once` (they go stale when you add or remove Convex files without `convex dev` running).
+- **Replaced an image in `public/` but the browser shows the old one** - Next's dev image cache lives in `.next/dev/cache/images`; delete it and hard-reload.
+- **Reset codes or invite emails not arriving** - check `AUTH_RESEND_KEY` is set (`npx convex env list`) and that the from-address domain is verified in Resend.
+- **Webhook returns 401** - the signature must be HMAC-SHA256 of the *raw request body* using `PROVISION_WEBHOOK_SECRET`, hex-encoded, in the `x-app-signature` header. A 400 means `externalId` or `email` is missing.
+- **Locked out of the only admin account** - if email is set up, use `/reset`. If not, open your deployment's **Data** page in the Convex dashboard, delete that person's row in `users` and their row in `authAccounts`, then run `npx convex run seed:bootstrapAdmin` for a fresh activation link (with `ADMIN_EMAIL` still set to that address). If there's a second admin, they can just use **Set password**.

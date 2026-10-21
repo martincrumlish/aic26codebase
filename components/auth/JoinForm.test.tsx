@@ -28,7 +28,7 @@ describe("JoinForm", () => {
     useQueryMock.mockReturnValue({ valid: true, purpose: "signup" });
     render(<JoinForm token="tok" />);
     expect(screen.getByText(/choose an email and password/i)).toBeInTheDocument();
-    expect(screen.queryByText(/creator|invited as/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/invited as/i)).not.toBeInTheDocument();
   });
 
   test("valid token: submits password signUp with the token in the form data", async () => {
