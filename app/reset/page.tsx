@@ -1,18 +1,15 @@
 // app/reset/page.tsx
+import Link from "next/link";
 import { ResetForm } from "@/components/auth/ResetForm";
 import { AuthSplit } from "@/components/auth/AuthSplit";
 
 export default function ResetPage() {
   return (
-    <AuthSplit>
-      <h1 className="text-center text-2xl font-semibold">Reset your password</h1>
+    <AuthSplit title="Reset your password" description="Get back into your account.">
       <ResetForm />
-      <a
-        href="/signin"
-        className="block text-center text-sm text-muted-foreground hover:underline"
-      >
+      <Link href="/signin" className="block text-center text-sm text-muted-foreground hover:underline">
         Back to sign in
-      </a>
+      </Link>
     </AuthSplit>
   );
 }

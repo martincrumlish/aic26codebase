@@ -4,8 +4,7 @@ import { AuthSplit } from "@/components/auth/AuthSplit";
 
 export default function SignUpPage() {
   return (
-    <AuthSplit>
-      <h1 className="text-center text-2xl font-semibold">Create your account</h1>
+    <AuthSplit title="Create your account" description="It only takes a minute.">
       <SignUpForm />
     </AuthSplit>
   );

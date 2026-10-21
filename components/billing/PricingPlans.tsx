@@ -43,7 +43,11 @@ export function PricingPlans() {
   return (
     <div className="space-y-8">
       <div className="flex justify-center">
-        <div className="inline-flex rounded-lg border p-1" role="group" aria-label="Billing period">
+        <div
+          className="inline-flex rounded-full border border-white/15 bg-white/5 p-1"
+          role="group"
+          aria-label="Billing period"
+        >
           {(["monthly", "yearly"] as const).map((i) => (
             <button
               key={i}
@@ -51,20 +55,27 @@ export function PricingPlans() {
               aria-pressed={interval === i}
               onClick={() => setBillingInterval(i)}
               className={cn(
-                "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-                interval === i ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+                interval === i ? "bg-white text-sidebar shadow-sm" : "text-white/70 hover:text-white",
               )}
             >
               {i === "monthly" ? "Monthly" : "Yearly"}
               {i === "yearly" && yearlySaving > 0 && (
-                <span className="ml-1.5 text-xs opacity-80">save {formatPrice(yearlySaving, pro.price.currency)}</span>
+                <span
+                  className={cn(
+                    "ml-1.5 rounded-full px-1.5 py-0.5 text-xs",
+                    interval === i ? "bg-emerald-600/10 text-emerald-700" : "bg-emerald-400/15 text-emerald-300",
+                  )}
+                >
+                  save {formatPrice(yearlySaving, pro.price.currency)}
+                </span>
               )}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid items-stretch gap-6 md:grid-cols-2">
         <PlanCard
           name={PLANS.free.name}
           description={PLANS.free.description}
@@ -73,7 +84,7 @@ export function PricingPlans() {
           features={PLANS.free.features}
         >
           {!isAuthenticated && mode === "open" && (
-            <Link href="/signup" className={cn(buttonVariants({ variant: "outline" }), "w-full")}>
+            <Link href="/signup" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}>
               Get started
             </Link>
           )}
@@ -90,6 +101,7 @@ export function PricingPlans() {
         >
           {!isAuthenticated && (
             <Button
+              size="lg"
               className="w-full"
               disabled={!enabled || busy}
               onClick={() => void redirectTo(() => guestCheckout({ interval }))}
@@ -99,6 +111,7 @@ export function PricingPlans() {
           )}
           {plan === "free" && (
             <Button
+              size="lg"
               className="w-full"
               disabled={!enabled || busy}
               onClick={() => void redirectTo(() => checkout({ interval }))}
@@ -140,17 +153,22 @@ function PlanCard(props: {
   return (
     <section
       className={cn(
-        "flex flex-col rounded-xl border bg-card p-6 text-card-foreground",
-        props.highlighted && "border-primary shadow-sm",
+        "relative flex flex-col rounded-2xl border bg-card p-7 text-card-foreground shadow-xl shadow-black/20",
+        props.highlighted && "ring-2 ring-primary",
       )}
     >
-      <h2 className="text-lg font-semibold">{props.name}</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">{props.name}</h2>
+        {props.highlighted && (
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">Recommended</span>
+        )}
+      </div>
       <p className="mt-1 text-sm text-muted-foreground">{props.description}</p>
-      <p className="mt-4">
-        <span className="text-4xl font-semibold tracking-tight">{props.price}</span>
+      <p className="mt-5 flex items-baseline gap-1">
+        <span className="text-5xl font-semibold tracking-tight">{props.price}</span>
         <span className="text-sm text-muted-foreground">{props.per}</span>
       </p>
-      <ul className="mt-6 flex-1 space-y-2 text-sm">
+      <ul className="mt-6 flex-1 space-y-2.5 border-t pt-6 text-sm">
         {props.features.map((f) => (
           <li key={f} className="flex items-start gap-2">
             <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -158,7 +176,7 @@ function PlanCard(props: {
           </li>
         ))}
       </ul>
-      <div className="mt-6 space-y-2">{props.children}</div>
+      <div className="mt-8 space-y-2">{props.children}</div>
     </section>
   );
 }

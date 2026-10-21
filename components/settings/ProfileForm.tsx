@@ -41,7 +41,8 @@ export function ProfileForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="profile-name">Name</Label>
-          <Input id="profile-name" name="name" defaultValue={me?.name ?? ""} placeholder="Your name" />
+          {/* key: start fresh when the saved name changes (an input's default can't change later) */}
+          <Input key={me?.name ?? ""} id="profile-name" name="name" defaultValue={me?.name ?? ""} placeholder="Your name" />
         </div>
         <div className="space-y-2">
           <Label htmlFor="profile-email">Email</Label>

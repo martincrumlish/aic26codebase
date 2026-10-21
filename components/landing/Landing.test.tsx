@@ -22,4 +22,12 @@ describe("Landing", () => {
     render(<Landing signupOpen />);
     expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");
   });
+
+  test("shows a preview of the app and what it does", () => {
+    render(<Landing signupOpen />);
+    expect(screen.getByRole("img", { name: /preview of the app/i })).toBeInTheDocument();
+    for (const feature of [/projects/i, /ai chat/i, /plans/i, /sign-in/i]) {
+      expect(screen.getByRole("heading", { level: 3, name: feature })).toBeInTheDocument();
+    }
+  });
 });

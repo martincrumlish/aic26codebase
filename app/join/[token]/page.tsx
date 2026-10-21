@@ -9,8 +9,7 @@ export default async function JoinPage({
 }) {
   const { token } = await params;
   return (
-    <AuthSplit>
-      <h1 className="text-center text-2xl font-semibold">Create your account</h1>
+    <AuthSplit title="Create your account" description="You've been invited. Choose your email and a password.">
       <JoinForm token={token} />
     </AuthSplit>
   );

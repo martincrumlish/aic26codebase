@@ -9,8 +9,7 @@ export default async function WelcomePage({
 }) {
   const { session_id } = await searchParams;
   return (
-    <AuthSplit>
-      <h1 className="text-center text-2xl font-semibold">Welcome!</h1>
+    <AuthSplit title="Welcome!" description="Thanks for your purchase.">
       <WelcomeAfterPurchase checkoutSessionId={session_id ?? null} />
     </AuthSplit>
   );

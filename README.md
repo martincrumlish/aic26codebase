@@ -37,7 +37,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 
 | Area | What's included |
 |---|---|
-| **Landing page** | A plain public home page at `/` (name and description from `lib/site.ts`) - replace it with your own marketing page |
+| **Landing page** | A branded public home page at `/`: hero with a screenshot of the app, a features section, and the same navy look as pricing and sign-in. Name and description come from `lib/site.ts`; swap in your own copy and screenshot |
 | **Auth pages** | `/signup` (open sign-up), `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code); email confirmation by code when email is set up; optional **Continue with Google** (`npm run setup:google`) |
 | **Auth gating** | `convex/authGate.ts` - open sign-up by default, or `SIGNUP_MODE=link` for signup links and pre-created accounts only; pre-created accounts can only be claimed with their own activation link; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
@@ -52,7 +52,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 264 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 265 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -311,12 +311,12 @@ On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder
 **2. Rename the app.**
 - `lib/site.ts` - your app's name and one-line description (used in the browser tab, the landing page, and search results)
 - `package.json` - `name`
-- `public/brand/` - replace `small-transparent.png` (sidebar logo; white on transparent suits the dark sidebar), `mid-transparent.png` (sign-in page logo), and `auth-bg.png` (sign-in page background)
+- `public/brand/` - replace `small-transparent.png` (logo in the sidebar and on the public pages; white on transparent suits the navy), `mid-transparent.png` (sign-in page logo), `auth-bg.png` (artwork behind the sign-in page and the landing hero), and `app-preview.png` (the screenshot on the landing page: use one of your product)
 
 **3. Wire a fresh Convex project** - follow the [Quickstart](#quickstart-running-it-locally).
 
 **4. Replace the placeholders.**
-- `components/landing/Landing.tsx` - the public home page
+- `components/landing/Landing.tsx` - the public home page (your features go in `FEATURES` at the top); the shared header and footer of the public pages are in `components/landing/SiteChrome.tsx`
 - `app/(app)/dashboard/page.tsx` - your main screen, keeping its loading-skeleton pattern
 
 **5. Add your own tables.** The quickest way is to copy [the Projects example](#the-projects-example) and rename it. Either way, for every table whose rows belong to a user:
@@ -371,7 +371,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (264 tests)
+npm run test:run       # everything (265 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode

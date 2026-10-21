@@ -9,8 +9,7 @@ export default async function ActivatePage({
 }) {
   const { token } = await params;
   return (
-    <AuthSplit>
-      <h1 className="text-center text-2xl font-semibold">Activate your account</h1>
+    <AuthSplit title="Activate your account" description="Your account is ready. Choose a password to finish.">
       <ActivateForm token={token} />
     </AuthSplit>
   );

@@ -11,8 +11,7 @@ export default async function SignInPage({
   // so landing here with ?via=google means it didn't complete.
   const { via } = await searchParams;
   return (
-    <AuthSplit>
-      <h1 className="text-center text-2xl font-semibold">Sign in</h1>
+    <AuthSplit title="Sign in" description="Welcome back. Sign in to continue.">
       <SignInForm googleReturn={via === "google"} />
     </AuthSplit>
   );
