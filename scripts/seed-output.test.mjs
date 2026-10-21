@@ -1,4 +1,4 @@
-// scripts/seed-output.test.mjs — parsing `npx convex run seed:bootstrapOperator` output.
+// scripts/seed-output.test.mjs — parsing `npx convex run seed:bootstrapAdmin` output.
 import { describe, expect, test } from "vitest";
 import { extractSeedResult } from "./seed-output.mjs";
 

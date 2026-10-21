@@ -24,8 +24,15 @@ describe("JoinForm", () => {
     expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument();
   });
 
+  test("valid token: invites the visitor to create an account, without role jargon", () => {
+    useQueryMock.mockReturnValue({ valid: true, purpose: "signup" });
+    render(<JoinForm token="tok" />);
+    expect(screen.getByText(/create your account/i)).toBeInTheDocument();
+    expect(screen.queryByText(/creator|invited as/i)).not.toBeInTheDocument();
+  });
+
   test("valid token: submits password signUp with the token in the form data", async () => {
-    useQueryMock.mockReturnValue({ valid: true, purpose: "signup", targetRole: "creator" });
+    useQueryMock.mockReturnValue({ valid: true, purpose: "signup" });
     render(<JoinForm token="tok_123" />);
     await userEvent.type(screen.getByLabelText(/email/i), "new@x.com");
     await userEvent.type(screen.getByLabelText(/^password/i), "supersecret123");

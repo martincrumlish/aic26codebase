@@ -22,18 +22,9 @@ export async function requireUser(ctx: AnyCtx): Promise<Doc<"users">> {
   return user;
 }
 
-/** Require operator role. */
-export async function requireOperator(ctx: AnyCtx): Promise<Doc<"users">> {
+/** Require admin role. */
+export async function requireAdmin(ctx: AnyCtx): Promise<Doc<"users">> {
   const user = await requireUser(ctx);
-  if (user.role !== "operator") throw new ConvexError("Operator role required.");
-  return user;
-}
-
-/** Require creator (operators pass too). */
-export async function requireCreator(ctx: AnyCtx): Promise<Doc<"users">> {
-  const user = await requireUser(ctx);
-  if (user.role !== "creator" && user.role !== "operator") {
-    throw new ConvexError("Creator role required.");
-  }
+  if (user.role !== "admin") throw new ConvexError("Admin role required.");
   return user;
 }

@@ -9,7 +9,7 @@ const modules = import.meta.glob("./**/*.ts");
 function makeUser(t: ReturnType<typeof convexTest>) {
   return t.run((ctx) =>
     ctx.db.insert("users", {
-      email: "c@x.com", role: "creator", status: "active",
+      email: "c@x.com", role: "user", status: "active",
       createdVia: "token", createdAt: Date.now(),
     }),
   );
@@ -162,12 +162,12 @@ describe("ai.getOpenRouterKeyForUser (internal)", () => {
   });
 });
 
-describe("operator.deleteUserAccount cascade", () => {
+describe("admin.deleteUserAccount cascade", () => {
   test("deletes the user's userApiKeys rows", async () => {
     const t = convexTest(schema, modules);
     const opId = await t.run((ctx) =>
       ctx.db.insert("users", {
-        email: "op@x.com", role: "operator", status: "active",
+        email: "op@x.com", role: "admin", status: "active",
         createdVia: "seed", createdAt: Date.now(),
       }),
     );
@@ -177,7 +177,7 @@ describe("operator.deleteUserAccount cascade", () => {
       key: "sk-or-v1-test-abcd",
     });
 
-    await t.withIdentity({ subject: opId }).mutation(api.operator.deleteUserAccount, {
+    await t.withIdentity({ subject: opId }).mutation(api.admin.deleteUserAccount, {
       userId: id,
     });
 

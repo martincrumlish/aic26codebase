@@ -33,7 +33,7 @@ export default async function createOrUpdateUser(
   const email = (args.profile.email as string | undefined)?.toLowerCase().trim();
   if (!email) throw new ConvexError("Email is required to sign in.");
 
-  // 2. Pre-seeded users row (webhook §4 / operator seed §7 / token activation).
+  // 2. Pre-seeded users row (webhook / admin seed / admin-created account).
   const seeded = await ctx.db
     .query("users")
     .withIndex("by_email", (q) => q.eq("email", email))
@@ -73,7 +73,6 @@ export default async function createOrUpdateUser(
         email,
         name: (args.profile.name as string) ?? undefined,
         role: tok.targetRole,
-        creatorId: tok.creatorScopeId,
         status: "active",
         createdVia: "token",
         createdAt: now,

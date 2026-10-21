@@ -19,14 +19,14 @@ import { Button } from "@/components/ui/button";
 import { UserPlusIcon } from "lucide-react";
 
 /**
- * Operator action: create a creator account directly with an initial password
- * the operator sets (and shares). Unlike the invite link, the account exists and
+ * Admin action: create a user account directly with an initial password
+ * the admin sets (and shares). Unlike the invite link, the account exists and
  * can sign in immediately. The new user can change the password via "Forgot your
  * password?".
  */
 export function AddUserDialog() {
   // createUserAccount is an ACTION (it uses Convex Auth's createAccount helper).
-  const createUser = useAction(api.operator.createUserAccount);
+  const createUser = useAction(api.admin.createUserAccount);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,7 +71,7 @@ export function AddUserDialog() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="au-password">Initial password</Label>
-            {/* type=text so the operator can read/copy the password they're setting to share. */}
+            {/* type=text so the admin can read/copy the password they're setting to share. */}
             <Input
               id="au-password"
               name="password"

@@ -1,5 +1,5 @@
 // scripts/seed-output.mjs — extract the JSON result object from
-// `npx convex run seed:bootstrapOperator` output, which may be surrounded
+// `npx convex run seed:bootstrapAdmin` output, which may be surrounded
 // by CLI banner lines.
 export function extractSeedResult(stdout) {
   const start = stdout.indexOf("{");

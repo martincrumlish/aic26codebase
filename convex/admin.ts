@@ -1,32 +1,44 @@
-// convex/operator.ts
+// convex/admin.ts — admin console backend. Every function is admin-only.
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { createAccount } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
-import { requireOperator } from "./access";
+import { requireAdmin } from "./access";
 
-const CreatorRow = v.object({
-  _id: v.id("users"),
-  _creationTime: v.number(),
-  email: v.optional(v.string()),
-  name: v.optional(v.string()),
-  role: v.optional(
-    v.union(v.literal("operator"), v.literal("creator"), v.literal("member")),
-  ),
-  status: v.optional(v.union(v.literal("active"), v.literal("revoked"))),
-  createdAt: v.optional(v.number()),
-});
+const Role = v.union(v.literal("admin"), v.literal("user"));
 
-export const listCreators = query({
+// Bounded reads: users and signup links are listed in full on one admin page.
+// Past a few thousand users, switch these to .paginate().
+const LIST_CAP = 1000;
+
+function isActiveSignupLink(tk: Doc<"provisioningTokens">, now: number) {
+  return (
+    tk.purpose === "signup" &&
+    !tk.revoked &&
+    (tk.expiresAt === undefined || tk.expiresAt > now) &&
+    (tk.maxUses === undefined || tk.usedCount < tk.maxUses)
+  );
+}
+
+// ── Users ────────────────────────────────────────────────────────────────────
+
+export const listUsers = query({
   args: {},
-  returns: v.array(CreatorRow),
+  returns: v.array(
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      email: v.optional(v.string()),
+      name: v.optional(v.string()),
+      role: v.optional(Role),
+      status: v.optional(v.union(v.literal("active"), v.literal("revoked"))),
+      createdAt: v.optional(v.number()),
+    }),
+  ),
   handler: async (ctx) => {
-    await requireOperator(ctx);
-    const rows = await ctx.db
-      .query("users")
-      .withIndex("by_role", (q) => q.eq("role", "creator"))
-      .collect();
+    await requireAdmin(ctx);
+    const rows = await ctx.db.query("users").order("desc").take(LIST_CAP);
     return rows.map((u) => ({
       _id: u._id,
       _creationTime: u._creationTime,
@@ -39,90 +51,157 @@ export const listCreators = query({
   },
 });
 
-// Standing signup links: no expiry, no use limit. Links stay live until the
-// operator rotates them (revokeSignupToken + generate a fresh one).
-export const generateCreatorToken = mutation({
-  args: { email: v.optional(v.string()) },
+// Admins can't be revoked or deleted directly: remove their admin rights
+// first. That keeps one admin from silently locking out another.
+async function requireManageableTarget(
+  ctx: Parameters<typeof requireAdmin>[0],
+  adminId: Id<"users">,
+  targetId: Id<"users">,
+  verb: string,
+) {
+  const target = await ctx.db.get(targetId);
+  if (!target) throw new ConvexError("User not found.");
+  if (target._id === adminId) {
+    throw new ConvexError(`You cannot ${verb} your own account.`);
+  }
+  if (target.role === "admin") {
+    throw new ConvexError(`Remove admin rights before you ${verb} this account.`);
+  }
+  return target;
+}
+
+export const revokeUser = mutation({
+  args: { userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    await requireManageableTarget(ctx, admin._id, args.userId, "revoke");
+    await ctx.db.patch(args.userId, { status: "revoked" });
+    return null;
+  },
+});
+
+export const restoreUser = mutation({
+  args: { userId: v.id("users") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new ConvexError("User not found.");
+    await ctx.db.patch(args.userId, { status: "active" });
+    return null;
+  },
+});
+
+export const setUserRole = mutation({
+  args: { userId: v.id("users"), role: Role },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    if (args.userId === admin._id) {
+      throw new ConvexError("You cannot change your own role.");
+    }
+    const target = await ctx.db.get(args.userId);
+    if (!target) throw new ConvexError("User not found.");
+    await ctx.db.patch(args.userId, { role: args.role });
+    return null;
+  },
+});
+
+// ── Signup links ─────────────────────────────────────────────────────────────
+// Standing by default: no expiry, no use limit. Links stay live until an admin
+// rotates them (revokeSignupLink + create a fresh one). Pass maxUses and/or
+// ttlDays for a one-off or time-boxed invite. Links only ever create role
+// "user" — admin rights are granted separately with setUserRole.
+
+export const createSignupLink = mutation({
+  args: {
+    email: v.optional(v.string()),
+    maxUses: v.optional(v.number()),
+    ttlDays: v.optional(v.number()),
+  },
   returns: v.object({ token: v.string() }),
   handler: async (ctx, args) => {
-    const operator = await requireOperator(ctx);
+    const admin = await requireAdmin(ctx);
     const token = crypto.randomUUID();
+    const now = Date.now();
     await ctx.db.insert("provisioningTokens", {
       token,
-      issuerId: operator._id,
-      targetRole: "creator",
-      email: args.email?.toLowerCase().trim(),
+      issuerId: admin._id,
+      targetRole: "user",
+      email: args.email?.toLowerCase().trim() || undefined,
+      maxUses: args.maxUses,
       usedCount: 0,
+      expiresAt:
+        args.ttlDays !== undefined ? now + 1000 * 60 * 60 * 24 * args.ttlDays : undefined,
       revoked: false,
       purpose: "signup",
-      createdAt: Date.now(),
+      createdAt: now,
     });
     return { token };
   },
 });
 
-export const listSignupTokens = query({
+export const listSignupLinks = query({
   args: {},
   returns: v.array(
     v.object({
       _id: v.id("provisioningTokens"),
       token: v.string(),
       email: v.optional(v.string()),
-      targetRole: v.union(
-        v.literal("operator"),
-        v.literal("creator"),
-        v.literal("member"),
-      ),
       usedCount: v.number(),
       createdAt: v.number(),
     }),
   ),
   handler: async (ctx) => {
-    await requireOperator(ctx);
-    // Bounded page: tokens are operator-issued (small table), same cap as platformStats.
-    const tokens = await ctx.db.query("provisioningTokens").order("desc").take(1000);
+    await requireAdmin(ctx);
+    const tokens = await ctx.db.query("provisioningTokens").order("desc").take(LIST_CAP);
     const now = Date.now();
     return tokens
-      .filter(
-        (tk) =>
-          tk.purpose === "signup" &&
-          !tk.revoked &&
-          (tk.expiresAt === undefined || tk.expiresAt > now) &&
-          (tk.maxUses === undefined || tk.usedCount < tk.maxUses),
-      )
+      .filter((tk) => isActiveSignupLink(tk, now))
       .map((tk) => ({
         _id: tk._id,
         token: tk.token,
         email: tk.email,
-        targetRole: tk.targetRole,
         usedCount: tk.usedCount,
         createdAt: tk.createdAt,
       }));
   },
 });
 
-export const revokeSignupToken = mutation({
-  args: { tokenId: v.id("provisioningTokens") },
+export const revokeSignupLink = mutation({
+  args: { linkId: v.id("provisioningTokens") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireOperator(ctx);
-    const tok = await ctx.db.get(args.tokenId);
+    await requireAdmin(ctx);
+    const tok = await ctx.db.get(args.linkId);
     if (!tok) throw new ConvexError("Link not found.");
-    await ctx.db.patch(args.tokenId, { revoked: true });
+    await ctx.db.patch(args.linkId, { revoked: true });
     return null;
   },
 });
 
-export const revokeCreator = mutation({
-  args: { creatorId: v.id("users") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await requireOperator(ctx);
-    const target = await ctx.db.get(args.creatorId);
-    if (!target) throw new ConvexError("Creator not found.");
-    if (target.role !== "creator") throw new ConvexError("Target is not a creator.");
-    await ctx.db.patch(args.creatorId, { status: "revoked" });
-    return null;
+// ── Stats & webhook config ───────────────────────────────────────────────────
+
+export const platformStats = query({
+  args: {},
+  returns: v.object({
+    users: v.number(),
+    admins: v.number(),
+    activeLinks: v.number(),
+  }),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const users = (
+      await ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "user")).take(LIST_CAP)
+    ).length;
+    const admins = (
+      await ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "admin")).take(LIST_CAP)
+    ).length;
+    const now = Date.now();
+    const tokens = await ctx.db.query("provisioningTokens").take(LIST_CAP);
+    const activeLinks = tokens.filter((tk) => isActiveSignupLink(tk, now)).length;
+    return { users, admins, activeLinks };
   },
 });
 
@@ -134,7 +213,7 @@ export const getWebhookInfo = query({
     rotatedAt: v.union(v.number(), v.null()),
   }),
   handler: async (ctx) => {
-    await requireOperator(ctx);
+    await requireAdmin(ctx);
     const hook = await ctx.db
       .query("webhooks")
       .withIndex("by_scope", (q) => q.eq("scope", "provision"))
@@ -152,7 +231,7 @@ export const rotateWebhookSecret = mutation({
   args: {},
   returns: v.object({ rotatedAt: v.number() }),
   handler: async (ctx) => {
-    await requireOperator(ctx);
+    await requireAdmin(ctx);
     // The actual secret lives in a Convex env var (PROVISION_WEBHOOK_SECRET) and
     // is rotated out-of-band via `npx convex env set`. Here we record the rotation
     // intent + timestamp on the webhooks row so the console reflects it.
@@ -175,36 +254,7 @@ export const rotateWebhookSecret = mutation({
   },
 });
 
-export const platformStats = query({
-  args: {},
-  returns: v.object({
-    creators: v.number(),
-    members: v.number(),
-    activeTokens: v.number(),
-  }),
-  handler: async (ctx) => {
-    await requireOperator(ctx);
-    const creators = (
-      await ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "creator")).collect()
-    ).length;
-    const members = (
-      await ctx.db.query("users").withIndex("by_role", (q) => q.eq("role", "member")).collect()
-    ).length;
-    const now = Date.now();
-    // Bounded page: stats only need an order-of-magnitude count and the token
-    // table is admin-issued (small). 1000 caps the read without an extra index.
-    const tokens = await ctx.db.query("provisioningTokens").take(1000);
-    const activeTokens = tokens.filter(
-      (tk) =>
-        !tk.revoked &&
-        (tk.expiresAt === undefined || tk.expiresAt > now) &&
-        (tk.maxUses === undefined || tk.usedCount < tk.maxUses),
-    ).length;
-    return { creators, members, activeTokens };
-  },
-});
-
-// ── Admin user management (operator-only) ────────────────────────────────────
+// ── Create a user account directly ───────────────────────────────────────────
 //
 // createUserAccount is an ACTION (not a mutation) because @convex-dev/auth's
 // `createAccount` helper internally invokes the auth store mutation by name —
@@ -214,7 +264,7 @@ export const platformStats = query({
 // This mirrors the existing `password.changePassword` action.
 //
 // The flow is:
-//   1. seedUserForAccount  (internal MUTATION, transactional) — operator gate +
+//   1. seedUserForAccount  (internal MUTATION, transactional) — admin gate +
 //      validation + duplicate check + PRE-SEED the users row. Pre-seeding is
 //      REQUIRED: createAccount → upsertUserAndAccount → our authGate callback,
 //      which (with existingUserId=null and no provisioning token) only succeeds
@@ -234,7 +284,7 @@ export const seedUserForAccount = internalMutation({
   },
   returns: v.object({ userId: v.id("users") }),
   handler: async (ctx, args) => {
-    await requireOperator(ctx);
+    await requireAdmin(ctx);
 
     const email = args.email.toLowerCase().trim();
     if (!email.includes("@")) {
@@ -255,7 +305,7 @@ export const seedUserForAccount = internalMutation({
     const userId = await ctx.db.insert("users", {
       email,
       name: args.name,
-      role: "creator",
+      role: "user",
       status: "active",
       createdVia: "seed",
       createdAt: Date.now(),
@@ -286,8 +336,8 @@ export const createUserAccount = action({
     const email = args.email.toLowerCase().trim();
     const name = args.name;
 
-    // 1. Operator gate + validation + duplicate check + pre-seed (transactional).
-    const { userId } = await ctx.runMutation(internal.operator.seedUserForAccount, {
+    // 1. Admin gate + validation + duplicate check + pre-seed (transactional).
+    const { userId } = await ctx.runMutation(internal.admin.seedUserForAccount, {
       email,
       name,
       password: args.password,
@@ -306,7 +356,7 @@ export const createUserAccount = action({
     } catch (err) {
       // Actions are not transactional — roll back the pre-seeded row by hand so
       // a failed credential creation never leaves an orphaned users row.
-      await ctx.runMutation(internal.operator.deleteSeededUser, { userId });
+      await ctx.runMutation(internal.admin.deleteSeededUser, { userId });
       throw err;
     }
 
@@ -314,11 +364,13 @@ export const createUserAccount = action({
   },
 });
 
-// deleteUserAccount HARD-deletes a user and all their Convex Auth records.
+// ── Delete a user ────────────────────────────────────────────────────────────
+//
+// deleteUserAccount HARD-deletes a user and all their data.
 //
 // Tables touched (verified against schema.ts):
-//   • App data: none yet — when the app adds owner-keyed tables, cascade them
-//     here FIRST (delete by ownerId index, free any ctx.storage blobs).
+//   • App data: userApiKeys (by_user). When you add owner-keyed tables, cascade
+//     them here FIRST (delete by owner index, free any ctx.storage blobs).
 //   • Convex Auth: authAccounts (userIdAndProvider), authVerificationCodes
 //       (accountId), authSessions (userId), authRefreshTokens (sessionId)
 //   • Finally: the users row.
@@ -326,24 +378,12 @@ export const deleteUserAccount = mutation({
   args: { userId: v.id("users") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const operator = await requireOperator(ctx);
-    const target = await ctx.db.get(args.userId);
-    if (!target) throw new ConvexError("User not found.");
-
-    // Guards.
-    if (target._id === operator._id) {
-      throw new ConvexError("You cannot delete your own account.");
-    }
-    if (target.role === "operator") {
-      throw new ConvexError("Operators cannot be deleted here.");
-    }
+    const admin = await requireAdmin(ctx);
+    await requireManageableTarget(ctx, admin._id, args.userId, "delete");
 
     const userId = args.userId;
 
-    // ── 1. App-owned data cascade goes here. When the app adds owner-keyed
-    // tables (e.g. projects/items with an ownerId index), delete those rows —
-    // and free any ctx.storage blobs they hold — BEFORE the auth records.
-    // userApiKeys: "by_user" index, keyed by [userId].
+    // ── 1. App-owned data. Add new owner-keyed tables here.
     const apiKeys = await ctx.db
       .query("userApiKeys")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -385,7 +425,7 @@ export const deleteUserAccount = mutation({
     // verifier with no live session is inert. We deleted the sessions above, so
     // we intentionally leave any lingering verifiers rather than scan the table.
 
-    // ── 5. Finally, the users row. authGate fails closed once it's gone. ──
+    // ── 3. Finally, the users row. authGate fails closed once it's gone. ──
     await ctx.db.delete(userId);
     return null;
   },

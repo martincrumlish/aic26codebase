@@ -14,16 +14,15 @@ describe("provisioning.ingestEvent", () => {
       externalId: "evt_1",
       source: "billing",
       type: "grant",
-      email: "Creator@X.com",
-      role: "creator",
+      email: "Customer@X.com",
     });
     expect(first.deduped).toBe(false);
 
-    // user created with normalized email + webhook provenance
+    // user created with normalized email, role user, webhook provenance
     const user = await t.run((ctx) =>
-      ctx.db.query("users").withIndex("by_email", (q) => q.eq("email", "creator@x.com")).unique(),
+      ctx.db.query("users").withIndex("by_email", (q) => q.eq("email", "customer@x.com")).unique(),
     );
-    expect(user?.role).toBe("creator");
+    expect(user?.role).toBe("user");
     expect(user?.createdVia).toBe("webhook");
     expect(user?.status).toBe("active");
 
@@ -38,8 +37,7 @@ describe("provisioning.ingestEvent", () => {
       externalId: "evt_1",
       source: "billing",
       type: "grant",
-      email: "creator@x.com",
-      role: "creator",
+      email: "customer@x.com",
     });
     expect(second.deduped).toBe(true);
     expect(second.userId).toBe(first.userId);
@@ -51,14 +49,13 @@ describe("provisioning.ingestEvent", () => {
 
   test("a prior FAILED event row (no userId) is not silently re-processed into a duplicate", async () => {
     const t = convexTest(schema, modules);
-    // Simulate a future failed-ingest row: same externalId, status failed, no userId.
     await t.run((ctx) =>
       ctx.db.insert("provisioningEvents", {
         externalId: "evt_failed",
         source: "billing",
         type: "grant",
-        targetEmail: "creator@x.com",
-        role: "creator",
+        targetEmail: "customer@x.com",
+        role: "user",
         status: "failed",
         receivedAt: Date.now(),
       }),
@@ -68,11 +65,9 @@ describe("provisioning.ingestEvent", () => {
         externalId: "evt_failed",
         source: "billing",
         type: "grant",
-        email: "creator@x.com",
-        role: "creator",
+        email: "customer@x.com",
       }),
     ).rejects.toThrow(/prior provisioning attempt/i);
-    // No duplicate event row, no user, no token were created by the replay.
     const events = await t.run((ctx) => ctx.db.query("provisioningEvents").collect());
     expect(events).toHaveLength(1);
     const tokens = await t.run((ctx) => ctx.db.query("provisioningTokens").collect());

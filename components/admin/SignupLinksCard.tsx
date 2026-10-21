@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export function SignupLinksCard() {
-  const links = useQuery(api.operator.listSignupTokens, {});
-  const revoke = useMutation(api.operator.revokeSignupToken);
+  const links = useQuery(api.admin.listSignupLinks, {});
+  const revoke = useMutation(api.admin.revokeSignupLink);
 
   if (links === undefined) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
@@ -48,7 +48,7 @@ export function SignupLinksCard() {
               variant="outline"
               size="sm"
               onClick={async () => {
-                await revoke({ tokenId: link._id });
+                await revoke({ linkId: link._id });
                 toast.success("Link revoked. Anyone holding it can no longer sign up.");
               }}
             >

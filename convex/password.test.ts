@@ -36,7 +36,7 @@ describe("password.changePassword", () => {
     // Insert a user without an email field.
     const userId = await t.run((ctx) =>
       ctx.db.insert("users", {
-        role: "creator",
+        role: "user",
         status: "active",
         createdVia: "seed",
         createdAt: Date.now(),
@@ -56,7 +56,7 @@ describe("password.changePassword", () => {
     const userId = await t.run((ctx) =>
       ctx.db.insert("users", {
         email: "user@example.com",
-        role: "creator",
+        role: "user",
         status: "active",
         createdVia: "seed",
         createdAt: Date.now(),
@@ -75,7 +75,7 @@ describe("password.changePassword", () => {
     const userId = await t.run((ctx) =>
       ctx.db.insert("users", {
         email: "user@example.com",
-        role: "creator",
+        role: "user",
         status: "active",
         createdVia: "seed",
         createdAt: Date.now(),

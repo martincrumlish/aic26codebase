@@ -2,7 +2,9 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const bootstrapOperator = internalMutation({
+// Creates the first admin (from the ADMIN_EMAIL env var) plus a single-use
+// activation link. Idempotent: re-running when the admin exists is a no-op.
+export const bootstrapAdmin = internalMutation({
   args: {},
   returns: v.object({
     userId: v.id("users"),
@@ -10,8 +12,8 @@ export const bootstrapOperator = internalMutation({
     activationToken: v.union(v.string(), v.null()),
   }),
   handler: async (ctx) => {
-    const email = process.env.OPERATOR_EMAIL?.toLowerCase().trim();
-    if (!email) throw new Error("OPERATOR_EMAIL env var is not set.");
+    const email = process.env.ADMIN_EMAIL?.toLowerCase().trim();
+    if (!email) throw new Error("ADMIN_EMAIL env var is not set.");
 
     const existing = await ctx.db
       .query("users")
@@ -24,7 +26,7 @@ export const bootstrapOperator = internalMutation({
     const now = Date.now();
     const userId = await ctx.db.insert("users", {
       email,
-      role: "operator",
+      role: "admin",
       status: "active",
       createdVia: "seed",
       createdAt: now,
@@ -34,7 +36,7 @@ export const bootstrapOperator = internalMutation({
     await ctx.db.insert("provisioningTokens", {
       token,
       issuerId: userId,
-      targetRole: "operator",
+      targetRole: "admin",
       email,
       maxUses: 1,
       usedCount: 0,

@@ -27,7 +27,7 @@ describe("POST /provision", () => {
     const t = convexTest(schema, modules);
     const body = JSON.stringify({
       externalId: "e1", source: "billing", type: "grant",
-      email: "c@x.com", role: "creator",
+      email: "c@x.com",
     });
     const res = await t.fetch("/provision", {
       method: "POST",
@@ -39,11 +39,42 @@ describe("POST /provision", () => {
     expect(users).toHaveLength(0);
   });
 
+  test("a role in the payload is ignored: webhooks only ever create role user", async () => {
+    const t = convexTest(schema, modules);
+    const body = JSON.stringify({
+      externalId: "e3", source: "billing", type: "grant",
+      email: "sneaky@x.com", role: "admin",
+    });
+    const res = await t.fetch("/provision", {
+      method: "POST",
+      headers: { "x-app-signature": await sign(SECRET, body) },
+      body,
+    });
+    expect(res.status).toBe(200);
+    const user = await t.run((ctx) =>
+      ctx.db.query("users").withIndex("by_email", (q) => q.eq("email", "sneaky@x.com")).unique(),
+    );
+    expect(user?.role).toBe("user");
+  });
+
+  test("a signed payload missing required fields gets 400, not a crash", async () => {
+    const t = convexTest(schema, modules);
+    const body = JSON.stringify({ externalId: "e4", source: "billing", type: "grant" });
+    const res = await t.fetch("/provision", {
+      method: "POST",
+      headers: { "x-app-signature": await sign(SECRET, body) },
+      body,
+    });
+    expect(res.status).toBe(400);
+    const users = await t.run((ctx) => ctx.db.query("users").collect());
+    expect(users).toHaveLength(0);
+  });
+
   test("accepts a valid signature, provisions, and is idempotent", async () => {
     const t = convexTest(schema, modules);
     const body = JSON.stringify({
       externalId: "e2", source: "billing", type: "grant",
-      email: "c@x.com", role: "creator",
+      email: "c@x.com",
     });
     const sig = await sign(SECRET, body);
 

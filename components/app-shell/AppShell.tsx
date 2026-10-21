@@ -15,13 +15,13 @@ type NavItem = {
   href: string;
   label: string;
   Icon: typeof LayoutDashboardIcon;
-  operatorOnly?: boolean;
+  adminOnly?: boolean;
 };
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboardIcon },
-  // Settings now lives in the Account menu (bottom-left), not the main nav.
-  { href: "/admin", label: "Admin", Icon: ShieldIcon, operatorOnly: true },
+  // Settings lives in the Account menu (bottom-left), not the main nav.
+  { href: "/admin", label: "Admin", Icon: ShieldIcon, adminOnly: true },
 ];
 
 /**
@@ -31,8 +31,8 @@ const NAV: NavItem[] = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const me = useQuery(api.users.currentUser, {});
-  const isOperator = me?.role === "operator";
-  const items = NAV.filter((n) => !n.operatorOnly || isOperator);
+  const isAdmin = me?.role === "admin";
+  const items = NAV.filter((n) => !n.adminOnly || isAdmin);
 
   return (
     <div className="flex h-screen bg-background text-foreground">

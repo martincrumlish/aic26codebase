@@ -38,7 +38,7 @@ describe("authGate.createOrUpdateUser", () => {
     const seededId = await t.run((ctx) =>
       ctx.db.insert("users", {
         email: "seeded@x.com",
-        role: "creator",
+        role: "user",
         status: "active",
         createdVia: "webhook",
         createdAt: Date.now(),
@@ -49,7 +49,7 @@ describe("authGate.createOrUpdateUser", () => {
     );
     expect(returned).toBe(seededId);
     const row = await t.run((ctx) => ctx.db.get(seededId));
-    expect(row?.role).toBe("creator");
+    expect(row?.role).toBe("user");
   });
 
   test("rejects a revoked pre-seeded email", async () => {
@@ -57,7 +57,7 @@ describe("authGate.createOrUpdateUser", () => {
     await t.run(async (ctx) => {
       await ctx.db.insert("users", {
         email: "revoked@x.com",
-        role: "creator",
+        role: "user",
         status: "revoked",
         createdVia: "webhook",
         createdAt: Date.now(),
@@ -68,11 +68,11 @@ describe("authGate.createOrUpdateUser", () => {
     });
   });
 
-  test("consumes a valid signup token (token-on-profile path) → creator", async () => {
+  test("consumes a valid signup token (token-on-profile path) → user", async () => {
     const t = convexTest(schema, modules);
     const issuerId = await t.run((ctx) =>
       ctx.db.insert("users", {
-        email: "op@x.com", role: "operator", status: "active",
+        email: "op@x.com", role: "admin", status: "active",
         createdVia: "seed", createdAt: Date.now(),
       }),
     );
@@ -80,7 +80,7 @@ describe("authGate.createOrUpdateUser", () => {
       ctx.db.insert("provisioningTokens", {
         token: "signup_tok_1",
         issuerId,
-        targetRole: "creator",
+        targetRole: "user",
         maxUses: 1,
         usedCount: 0,
         expiresAt: Date.now() + 60_000,
@@ -91,11 +91,11 @@ describe("authGate.createOrUpdateUser", () => {
     );
     const newId = await t.run((ctx) =>
       createOrUpdateUser(ctx as any, args({ // eslint-disable-line @typescript-eslint/no-explicit-any
-        profile: { email: "newcreator@x.com", token: "signup_tok_1" },
+        profile: { email: "newuser@x.com", token: "signup_tok_1" },
       })),
     );
     const row = await t.run((ctx) => ctx.db.get(newId));
-    expect(row?.role).toBe("creator");
+    expect(row?.role).toBe("user");
     expect(row?.createdVia).toBe("token");
     const tok = await t.run((ctx) =>
       ctx.db.query("provisioningTokens")
@@ -109,7 +109,7 @@ describe("authGate.createOrUpdateUser", () => {
     // Create then delete a user to obtain a dangling id.
     const danglingId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("users", {
-        email: "gone@x.com", role: "creator", status: "active",
+        email: "gone@x.com", role: "user", status: "active",
         createdVia: "token", createdAt: Date.now(),
       });
       await ctx.db.delete(id);
@@ -126,7 +126,7 @@ describe("authGate.createOrUpdateUser", () => {
     const t = convexTest(schema, modules);
     const id = await t.run((ctx) =>
       ctx.db.insert("users", {
-        email: "back@x.com", role: "creator", status: "active",
+        email: "back@x.com", role: "user", status: "active",
         createdVia: "token", createdAt: Date.now(),
       }),
     );

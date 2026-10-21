@@ -6,7 +6,7 @@
 import { action, internalAction, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { requireOperator, requireUser } from "./access";
+import { requireAdmin, requireUser } from "./access";
 
 const SendResult = v.object({
   sent: v.boolean(),
@@ -60,21 +60,21 @@ export const emailEnabled = query({
 });
 
 /** Internal auth gate for actions (no db on action ctx). */
-export const assertOperator = internalQuery({
+export const assertAdmin = internalQuery({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    await requireOperator(ctx);
+    await requireAdmin(ctx);
     return null;
   },
 });
 
-/** Operator-only: email a creator invite link for an already-created token. */
-export const sendCreatorInvite = action({
+/** Admin-only: email a signup link for an already-created token. */
+export const sendSignupInvite = action({
   args: { email: v.string(), token: v.string() },
   returns: SendResult,
   handler: async (ctx, args): Promise<SendResult> => {
-    await ctx.runQuery(internal.email.assertOperator, {});
+    await ctx.runQuery(internal.email.assertAdmin, {});
     const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
     const joinUrl = `${siteUrl}/join/${args.token}`;
     return await ctx.runAction(internal.email.send, {

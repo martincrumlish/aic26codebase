@@ -13,20 +13,20 @@ describe("users.currentUser / updateProfile", () => {
 
     const id = await t.run((ctx) =>
       ctx.db.insert("users", {
-        email: "c@x.com", role: "creator", status: "active",
+        email: "c@x.com", role: "user", status: "active",
         createdVia: "token", createdAt: Date.now(),
       }),
     );
     const me = await t.withIdentity({ subject: id }).query(api.users.currentUser, {});
     expect(me?._id).toBe(id);
-    expect(me?.role).toBe("creator");
+    expect(me?.role).toBe("user");
   });
 
   test("updateProfile sets the name for the signed-in user", async () => {
     const t = convexTest(schema, modules);
     const id = await t.run((ctx) =>
       ctx.db.insert("users", {
-        email: "c@x.com", role: "creator", status: "active",
+        email: "c@x.com", role: "user", status: "active",
         createdVia: "token", createdAt: Date.now(),
       }),
     );

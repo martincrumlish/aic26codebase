@@ -11,7 +11,7 @@ test("base tables exist with required fields and indexes", async () => {
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       email: "op@x.com",
-      role: "operator",
+      role: "admin",
       status: "active",
       createdVia: "seed",
       createdAt: Date.now(),
@@ -19,7 +19,7 @@ test("base tables exist with required fields and indexes", async () => {
     const tokenId = await ctx.db.insert("provisioningTokens", {
       token: "tok_abc",
       issuerId: userId,
-      targetRole: "creator",
+      targetRole: "user",
       maxUses: 1,
       usedCount: 0,
       expiresAt: Date.now() + 1000,
@@ -36,8 +36,8 @@ test("base tables exist with required fields and indexes", async () => {
       externalId: "ext_1",
       source: "billing",
       type: "grant",
-      targetEmail: "creator@x.com",
-      role: "creator",
+      targetEmail: "user@x.com",
+      role: "user",
       status: "processed",
       userId,
       receivedAt: Date.now(),

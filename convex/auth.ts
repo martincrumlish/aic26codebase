@@ -16,7 +16,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         return {
           email,
           name: (params.name as string) ?? undefined,
-          // Pass the signup token through to createOrUpdateUser (authGate §3).
+          // Pass the signup token through to createOrUpdateUser (authGate step 3).
           token: (params.token as string) ?? undefined,
         };
       },

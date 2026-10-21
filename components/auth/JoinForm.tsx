@@ -16,12 +16,12 @@ export function JoinForm({ token }: { token: string }) {
   const [submitting, setSubmitting] = useState(false);
 
   if (result === undefined) {
-    return <p className="text-sm text-muted-foreground">Checking your invite…</p>;
+    return <p className="text-sm text-muted-foreground">Checking your link…</p>;
   }
   if (!result.valid) {
     return (
       <p className="text-sm text-destructive">
-        {result.reason ?? "This invite link is not valid."}
+        {result.reason ?? "This signup link is not valid."}
       </p>
     );
   }
@@ -47,7 +47,7 @@ export function JoinForm({ token }: { token: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        You&apos;ve been invited as a {result.targetRole ?? "creator"}. Set your credentials to continue.
+        Create your account to get started.
       </p>
       <div className="space-y-2">
         <Label htmlFor="join-email">Email</Label>

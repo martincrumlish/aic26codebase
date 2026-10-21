@@ -6,7 +6,7 @@ import { api, internal } from "./_generated/api";
 
 const modules = import.meta.glob("./**/*.ts");
 
-function makeUser(t: ReturnType<typeof convexTest>, role: "operator" | "creator" = "creator") {
+function makeUser(t: ReturnType<typeof convexTest>, role: "admin" | "user" = "user") {
   return t.run((ctx) =>
     ctx.db.insert("users", {
       email: `${role}@x.com`, role, status: "active",
@@ -99,16 +99,16 @@ describe("email.emailEnabled", () => {
   });
 });
 
-describe("email.sendCreatorInvite", () => {
-  test("operator can email an invite link containing the join URL", async () => {
+describe("email.sendSignupInvite", () => {
+  test("admin can email an invite link containing the join URL", async () => {
     const t = convexTest(schema, modules);
-    const opId = await makeUser(t, "operator");
+    const opId = await makeUser(t, "admin");
     vi.stubEnv("AUTH_RESEND_KEY", "re_test_123");
     vi.stubEnv("SITE_URL", "http://localhost:3000");
     const spy = vi.fn(async () => new Response(JSON.stringify({ id: "email_2" }), { status: 200 }));
     vi.stubGlobal("fetch", spy);
 
-    const result = await t.withIdentity({ subject: opId }).action(api.email.sendCreatorInvite, {
+    const result = await t.withIdentity({ subject: opId }).action(api.email.sendSignupInvite, {
       email: "invitee@x.com", token: "tok-123",
     });
 
@@ -118,16 +118,16 @@ describe("email.sendCreatorInvite", () => {
     expect(body.html).toContain("http://localhost:3000/join/tok-123");
   });
 
-  test("non-operators are rejected", async () => {
+  test("non-admins are rejected", async () => {
     const t = convexTest(schema, modules);
-    const id = await makeUser(t, "creator");
+    const id = await makeUser(t, "user");
     vi.stubEnv("AUTH_RESEND_KEY", "re_test_123");
     vi.stubGlobal("fetch", vi.fn());
 
     await expect(
-      t.withIdentity({ subject: id }).action(api.email.sendCreatorInvite, {
+      t.withIdentity({ subject: id }).action(api.email.sendSignupInvite, {
         email: "invitee@x.com", token: "tok-123",
       }),
-    ).rejects.toThrow(/operator/i);
+    ).rejects.toThrow(/Admin role required/);
   });
 });

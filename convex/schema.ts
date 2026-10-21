@@ -19,10 +19,7 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     // —— app fields (ALL optional — auth inserts bare {email} first) ——
-    role: v.optional(
-      v.union(v.literal("operator"), v.literal("creator"), v.literal("member")),
-    ),
-    creatorId: v.optional(v.id("users")),
+    role: v.optional(v.union(v.literal("admin"), v.literal("user"))),
     status: v.optional(v.union(v.literal("active"), v.literal("revoked"))),
     createdVia: v.optional(
       v.union(v.literal("seed"), v.literal("token"), v.literal("webhook")),
@@ -30,18 +27,12 @@ export default defineSchema({
     createdAt: v.optional(v.number()),
   })
     .index("by_email", ["email"])
-    .index("by_role", ["role"])
-    .index("by_creator", ["creatorId"]),
+    .index("by_role", ["role"]),
 
   provisioningTokens: defineTable({
     token: v.string(),
     issuerId: v.id("users"),
-    targetRole: v.union(
-      v.literal("operator"),
-      v.literal("creator"),
-      v.literal("member"),
-    ),
-    creatorScopeId: v.optional(v.id("users")),
+    targetRole: v.union(v.literal("admin"), v.literal("user")),
     email: v.optional(v.string()),
     maxUses: v.optional(v.number()), // absent = unlimited uses (standing link)
     usedCount: v.number(),
@@ -74,11 +65,7 @@ export default defineSchema({
     source: v.string(),
     type: v.string(),
     targetEmail: v.string(),
-    role: v.union(
-      v.literal("operator"),
-      v.literal("creator"),
-      v.literal("member"),
-    ),
+    role: v.union(v.literal("admin"), v.literal("user")),
     status: v.union(
       v.literal("received"),
       v.literal("processed"),

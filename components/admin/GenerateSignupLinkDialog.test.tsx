@@ -1,31 +1,31 @@
-// components/admin/GenerateCreatorLinkDialog.test.tsx
+// components/admin/GenerateSignupLinkDialog.test.tsx
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 let emailEnabled = false;
 const generate = vi.fn(() => Promise.resolve({ token: "tok-123" }));
-const sendCreatorInvite = vi.fn(() => Promise.resolve({ sent: true, id: "email_1" }));
+const sendSignupInvite = vi.fn(() => Promise.resolve({ sent: true, id: "email_1" }));
 vi.mock("convex/react", async (orig) => ({
   ...(await orig<typeof import("convex/react")>()),
   useQuery: vi.fn(() => emailEnabled),
   useMutation: vi.fn(() => generate),
-  useAction: vi.fn(() => sendCreatorInvite),
+  useAction: vi.fn(() => sendSignupInvite),
 }));
 
-import { GenerateCreatorLinkDialog } from "./GenerateCreatorLinkDialog";
+import { GenerateSignupLinkDialog } from "./GenerateSignupLinkDialog";
 
 beforeEach(() => {
   generate.mockClear();
-  sendCreatorInvite.mockClear();
+  sendSignupInvite.mockClear();
 });
 
 async function openDialog() {
-  render(<GenerateCreatorLinkDialog />);
-  await userEvent.click(screen.getByRole("button", { name: /generate creator link/i }));
+  render(<GenerateSignupLinkDialog />);
+  await userEvent.click(screen.getByRole("button", { name: /generate signup link/i }));
 }
 
-describe("GenerateCreatorLinkDialog", () => {
+describe("GenerateSignupLinkDialog", () => {
   test("hides the email-this-invite option when email is not configured", async () => {
     emailEnabled = false;
     await openDialog();
@@ -37,7 +37,7 @@ describe("GenerateCreatorLinkDialog", () => {
     await openDialog();
     await userEvent.click(screen.getByRole("button", { name: /create link/i }));
     expect(generate).toHaveBeenCalled();
-    expect(sendCreatorInvite).not.toHaveBeenCalled();
+    expect(sendSignupInvite).not.toHaveBeenCalled();
     expect(screen.getByDisplayValue(/\/join\/tok-123$/)).toBeInTheDocument();
   });
 
@@ -48,6 +48,6 @@ describe("GenerateCreatorLinkDialog", () => {
     await userEvent.click(screen.getByLabelText(/email this invite/i));
     await userEvent.click(screen.getByRole("button", { name: /create link/i }));
     expect(generate).toHaveBeenCalledWith({ email: "invitee@x.com" });
-    expect(sendCreatorInvite).toHaveBeenCalledWith({ email: "invitee@x.com", token: "tok-123" });
+    expect(sendSignupInvite).toHaveBeenCalledWith({ email: "invitee@x.com", token: "tok-123" });
   });
 });

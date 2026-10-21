@@ -6,7 +6,7 @@ import { describe, expect, test, vi } from "vitest";
 const updateProfile = vi.fn(() => Promise.resolve(null));
 vi.mock("convex/react", async (orig) => ({
   ...(await orig<typeof import("convex/react")>()),
-  useQuery: vi.fn(() => ({ _id: "1", name: "Ada", email: "ada@x.com", role: "creator" })),
+  useQuery: vi.fn(() => ({ _id: "1", name: "Ada", email: "ada@x.com", role: "user" })),
   useMutation: vi.fn(() => updateProfile),
 }));
 

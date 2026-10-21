@@ -1,4 +1,4 @@
-// components/admin/GenerateCreatorLinkDialog.tsx
+// components/admin/GenerateSignupLinkDialog.tsx
 "use client";
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-export function GenerateCreatorLinkDialog() {
-  const generate = useMutation(api.operator.generateCreatorToken);
+export function GenerateSignupLinkDialog() {
+  const generate = useMutation(api.admin.createSignupLink);
   const emailEnabled = useQuery(api.email.emailEnabled);
-  const sendInvite = useAction(api.email.sendCreatorInvite);
+  const sendInvite = useAction(api.email.sendSignupInvite);
   const [link, setLink] = useState<string | null>(null);
 
   async function onGenerate(e: React.FormEvent<HTMLFormElement>) {
@@ -36,11 +36,11 @@ export function GenerateCreatorLinkDialog() {
   return (
     <Dialog>
       <DialogTrigger render={<Button />}>
-        Generate creator link
+        Generate signup link
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Generate a creator invite link</DialogTitle>
+          <DialogTitle>Generate a signup link</DialogTitle>
         </DialogHeader>
         <form onSubmit={onGenerate} className="space-y-4">
           <div className="space-y-2">
@@ -62,7 +62,7 @@ export function GenerateCreatorLinkDialog() {
         </form>
         {link && (
           <div className="space-y-2">
-            <Label>Invite link</Label>
+            <Label>Signup link</Label>
             <div className="flex gap-2">
               <Input readOnly value={link} />
               <Button

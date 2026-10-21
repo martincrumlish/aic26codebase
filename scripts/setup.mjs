@@ -4,11 +4,11 @@
 // Chains the four bootstrap steps from the README:
 //   1. npx convex dev --once        (create/link a Convex deployment, write .env.local)
 //   2. npx @convex-dev/auth         (generate JWT keys on the deployment)
-//   3. npx convex env set SITE_URL + OPERATOR_EMAIL
-//   4. npx convex run seed:bootstrapOperator  → prints your activation link
+//   3. npx convex env set SITE_URL + ADMIN_EMAIL
+//   4. npx convex run seed:bootstrapAdmin  → prints your activation link
 //
 // Safe to re-run: every step is idempotent (the seed returns created:false
-// if the operator already exists).
+// if the admin already exists).
 import { spawnSync } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { extractSeedResult } from "./seed-output.mjs";
@@ -40,21 +40,21 @@ run("Provisioning your Convex deployment", "npx", ["convex", "dev", "--once"]);
 // 2. JWT keys for Convex Auth (idempotent — keeps existing keys if already set).
 run("Generating auth keys (JWT keypair)", "npx", ["@convex-dev/auth", "--skip-git-check", "--web-server-url", SITE_URL]);
 
-// 3. Site URL + operator email.
+// 3. Site URL + admin email.
 run(`Setting SITE_URL=${SITE_URL}`, "npx", ["convex", "env", "set", "SITE_URL", SITE_URL]);
 
-let email = process.env.OPERATOR_EMAIL;
+let email = process.env.ADMIN_EMAIL;
 if (!email) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   while (!email || !email.includes("@")) {
-    email = (await rl.question("\nYour email for the admin (operator) account: ")).trim();
+    email = (await rl.question("\nYour email for the admin account: ")).trim();
   }
   rl.close();
 }
-run("Setting OPERATOR_EMAIL", "npx", ["convex", "env", "set", "OPERATOR_EMAIL", email]);
+run("Setting ADMIN_EMAIL", "npx", ["convex", "env", "set", "ADMIN_EMAIL", email]);
 
-// 4. Seed the operator and surface the activation link.
-const seedOut = run("Seeding the operator account", "npx", ["convex", "run", "seed:bootstrapOperator"], { capture: true });
+// 4. Seed the admin and surface the activation link.
+const seedOut = run("Seeding the admin account", "npx", ["convex", "run", "seed:bootstrapAdmin"], { capture: true });
 const seed = extractSeedResult(seedOut);
 
 console.log("\n\x1b[32m✔ Setup complete.\x1b[0m\n");
@@ -62,9 +62,9 @@ if (seed?.created && seed.activationToken) {
   console.log("Next steps:");
   console.log("  1. npm run dev");
   console.log(`  2. Open \x1b[1m${SITE_URL}/activate/${seed.activationToken}\x1b[0m and set your password.`);
-  console.log("  3. You're the operator — the Admin section appears in the sidebar.");
+  console.log("  3. You're the admin - the Admin section appears in the sidebar.");
 } else if (seed && !seed.created) {
-  console.log(`The operator account (${email}) already exists — start the app with \x1b[1mnpm run dev\x1b[0m and sign in at ${SITE_URL}/signin.`);
+  console.log(`The admin account (${email}) already exists - start the app with \x1b[1mnpm run dev\x1b[0m and sign in at ${SITE_URL}/signin.`);
 } else {
   console.log("Could not read the seed result above — if it shows an activationToken, open:");
   console.log(`  ${SITE_URL}/activate/<activationToken>`);

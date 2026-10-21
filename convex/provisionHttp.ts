@@ -36,29 +36,28 @@ export const provisionWebhook = httpAction(async (ctx, request) => {
     return new Response("Invalid signature", { status: 401 });
   }
 
-  // 3. Parse after verification.
-  let payload: {
-    externalId: string;
-    source: string;
-    type: string;
-    email: string;
-    role: "operator" | "creator" | "member";
-    creatorScopeId?: string;
-  };
+  // 3. Parse after verification. Any `role` in the payload is ignored —
+  //    webhooks only ever create role "user" (see provisioning.ingestEvent).
+  let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(raw);
   } catch {
     return new Response("Bad JSON", { status: 400 });
   }
+  const { externalId, source, type, email } = payload;
+  if (
+    typeof externalId !== "string" || !externalId ||
+    typeof email !== "string" || !email.includes("@")
+  ) {
+    return new Response("Missing or invalid externalId/email", { status: 400 });
+  }
 
   // 4. Idempotent provision inside a single mutation.
   const result = await ctx.runMutation(internal.provisioning.ingestEvent, {
-    externalId: payload.externalId,
-    source: payload.source,
-    type: payload.type,
-    email: payload.email.toLowerCase().trim(),
-    role: payload.role,
-    creatorScopeId: payload.creatorScopeId,
+    externalId,
+    source: typeof source === "string" ? source : "unknown",
+    type: typeof type === "string" ? type : "unknown",
+    email: email.toLowerCase().trim(),
   });
 
   return Response.json({ ok: true, deduped: result.deduped });

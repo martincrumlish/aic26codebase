@@ -5,15 +5,15 @@ import { api } from "@/convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function StatsCards() {
-  const stats = useQuery(api.operator.platformStats, {});
+  const stats = useQuery(api.admin.platformStats, {});
   if (stats === undefined) return null;
   const items = [
-    { label: "Creators", value: stats.creators },
-    { label: "Members", value: stats.members },
-    { label: "Active invite tokens", value: stats.activeTokens },
+    { label: "Users", value: stats.users },
+    { label: "Admins", value: stats.admins },
+    { label: "Active signup links", value: stats.activeLinks },
   ];
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       {items.map((it) => (
         <Card key={it.label}>
           <CardHeader className="pb-2">

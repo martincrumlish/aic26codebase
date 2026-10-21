@@ -1,22 +1,17 @@
 // convex/provisioning.ts
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
-import { requireOperator } from "./access";
 import type { Id } from "./_generated/dataModel";
 
 // —— Inbound webhook ingest (idempotent). Called from provisionHttp.ts. ——
+// Webhooks only ever create role "user": the payload has no say in roles, so a
+// leaked or misused webhook secret can't mint admins.
 export const ingestEvent = internalMutation({
   args: {
     externalId: v.string(),
     source: v.string(),
     type: v.string(),
     email: v.string(),
-    role: v.union(
-      v.literal("operator"),
-      v.literal("creator"),
-      v.literal("member"),
-    ),
-    creatorScopeId: v.optional(v.string()),
   },
   returns: v.object({ deduped: v.boolean(), userId: v.id("users") }),
   handler: async (ctx, args) => {
@@ -37,9 +32,6 @@ export const ingestEvent = internalMutation({
     }
 
     const email = args.email.toLowerCase().trim();
-    const creatorScope = args.creatorScopeId
-      ? (ctx.db.normalizeId("users", args.creatorScopeId) ?? undefined)
-      : undefined;
 
     // Find or create the pending users profile.
     const user = await ctx.db
@@ -53,8 +45,7 @@ export const ingestEvent = internalMutation({
     } else {
       userId = await ctx.db.insert("users", {
         email,
-        role: args.role,
-        creatorId: creatorScope,
+        role: "user",
         status: "active",
         createdVia: "webhook",
         createdAt: Date.now(),
@@ -66,8 +57,7 @@ export const ingestEvent = internalMutation({
     await ctx.db.insert("provisioningTokens", {
       token,
       issuerId: userId,
-      targetRole: args.role,
-      creatorScopeId: creatorScope,
+      targetRole: "user",
       email,
       maxUses: 1,
       usedCount: 0,
@@ -82,7 +72,7 @@ export const ingestEvent = internalMutation({
       source: args.source,
       type: args.type,
       targetEmail: email,
-      role: args.role,
+      role: "user",
       status: "processed",
       userId,
       receivedAt: Date.now(),
@@ -92,40 +82,8 @@ export const ingestEvent = internalMutation({
   },
 });
 
-// —— Operator-issued signup token (e.g. creator invite link). ——
-export const createSignupToken = mutation({
-  args: {
-    targetRole: v.union(v.literal("creator"), v.literal("member")),
-    email: v.optional(v.string()),
-    creatorScopeId: v.optional(v.id("users")),
-    maxUses: v.optional(v.number()),
-    ttlDays: v.optional(v.number()),
-  },
-  returns: v.object({ token: v.string() }),
-  handler: async (ctx, args) => {
-    const operator = await requireOperator(ctx);
-    const token = crypto.randomUUID();
-    const now = Date.now();
-    await ctx.db.insert("provisioningTokens", {
-      token,
-      issuerId: operator._id,
-      targetRole: args.targetRole,
-      creatorScopeId: args.creatorScopeId,
-      email: args.email?.toLowerCase().trim(),
-      // Standing links by default: no expiry, no use limit. Pass maxUses
-      // and/or ttlDays for one-off or time-boxed invites.
-      maxUses: args.maxUses,
-      usedCount: 0,
-      expiresAt: args.ttlDays !== undefined ? now + 1000 * 60 * 60 * 24 * args.ttlDays : undefined,
-      revoked: false,
-      purpose: "signup",
-      createdAt: now,
-    });
-    return { token };
-  },
-});
-
 // —— Public token validation for /join and /activate page render. ——
+// Signup links are created by admin.createSignupLink.
 export const validateToken = query({
   args: { token: v.string() },
   returns: v.object({
@@ -133,9 +91,6 @@ export const validateToken = query({
     reason: v.optional(v.string()),
     purpose: v.optional(v.union(v.literal("signup"), v.literal("activation"))),
     email: v.optional(v.string()),
-    targetRole: v.optional(
-      v.union(v.literal("operator"), v.literal("creator"), v.literal("member")),
-    ),
   }),
   handler: async (ctx, args) => {
     const tok = await ctx.db
@@ -150,7 +105,6 @@ export const validateToken = query({
       valid: true,
       purpose: tok.purpose,
       email: tok.email,
-      targetRole: tok.targetRole,
     };
   },
 });
@@ -189,7 +143,6 @@ export const consumeActivationToken = mutation({
       await ctx.db.insert("users", {
         email,
         role: tok.targetRole,
-        creatorId: tok.creatorScopeId,
         status: "active",
         createdVia: "webhook",
         createdAt: now,

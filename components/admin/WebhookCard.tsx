@@ -17,8 +17,8 @@ function provisionUrl(): string {
 }
 
 export function WebhookCard() {
-  const info = useQuery(api.operator.getWebhookInfo, {});
-  const rotate = useMutation(api.operator.rotateWebhookSecret);
+  const info = useQuery(api.admin.getWebhookInfo, {});
+  const rotate = useMutation(api.admin.rotateWebhookSecret);
   if (info === undefined) return null;
   const url = provisionUrl();
 
