@@ -15,17 +15,18 @@ const isProtectedRoute = createRouteMatcher([
 // Public (no auth required).
 const isPublicRoute = createRouteMatcher([
   "/signin(.*)",
+  "/signup(.*)",
   "/join(.*)",
   "/activate(.*)",
   "/reset(.*)",
 ]);
 
-const isSignInPage = createRouteMatcher(["/signin(.*)"]);
+const isSignInPage = createRouteMatcher(["/signin(.*)", "/signup(.*)"]);
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const authed = await convexAuth.isAuthenticated();
 
-  // Signed in but on /signin → dashboard.
+  // Signed in but on /signin or /signup → dashboard.
   if (isSignInPage(request) && authed) {
     return nextjsMiddlewareRedirect(request, "/dashboard");
   }

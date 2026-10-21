@@ -30,6 +30,14 @@ describe("ActivateForm", () => {
     expect(useMutationMock).not.toHaveBeenCalled();
   });
 
+  test("when email confirmation is needed, shows the code step", async () => {
+    signIn.mockResolvedValueOnce({ signingIn: false } as never);
+    render(<ActivateForm token="act_123" />);
+    await userEvent.type(screen.getByLabelText(/^password/i), "owner-pass-123");
+    await userEvent.click(screen.getByRole("button", { name: /activate account/i }));
+    expect(screen.getByLabelText(/confirmation code/i)).toBeInTheDocument();
+  });
+
   test("the email from the link is shown but can't be changed", () => {
     render(<ActivateForm token="act_123" />);
     expect(screen.getByLabelText(/email/i)).toHaveAttribute("readonly");

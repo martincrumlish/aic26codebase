@@ -11,3 +11,5 @@ export const SIGNIN_REJECTED = "Invalid email or password.";
 export const PASSWORD_TOO_SHORT = "Password must be at least 8 characters.";
 
 export const REVOKED = "This account has been revoked.";
+
+export const CODE_INVALID = "That code is invalid or expired. Check your email or request a new one.";

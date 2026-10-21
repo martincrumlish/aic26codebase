@@ -31,6 +31,16 @@ describe("JoinForm", () => {
     expect(screen.queryByText(/invited as/i)).not.toBeInTheDocument();
   });
 
+  test("when email confirmation is needed, shows the code step", async () => {
+    useQueryMock.mockReturnValue({ valid: true, purpose: "signup" });
+    signIn.mockResolvedValueOnce({ signingIn: false } as never);
+    render(<JoinForm token="tok_123" />);
+    await userEvent.type(screen.getByLabelText(/email/i), "new@x.com");
+    await userEvent.type(screen.getByLabelText(/^password/i), "supersecret123");
+    await userEvent.click(screen.getByRole("button", { name: /create account/i }));
+    expect(screen.getByLabelText(/confirmation code/i)).toBeInTheDocument();
+  });
+
   test("valid token: submits password signUp with the token in the form data", async () => {
     useQueryMock.mockReturnValue({ valid: true, purpose: "signup" });
     render(<JoinForm token="tok_123" />);

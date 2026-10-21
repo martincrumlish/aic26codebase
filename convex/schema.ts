@@ -22,7 +22,7 @@ export default defineSchema({
     role: v.optional(v.union(v.literal("admin"), v.literal("user"))),
     status: v.optional(v.union(v.literal("active"), v.literal("revoked"))),
     createdVia: v.optional(
-      v.union(v.literal("seed"), v.literal("token"), v.literal("webhook")),
+      v.union(v.literal("seed"), v.literal("token"), v.literal("webhook"), v.literal("signup")),
     ),
     createdAt: v.optional(v.number()),
   })

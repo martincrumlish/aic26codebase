@@ -1,10 +1,12 @@
 // convex/authGate.test.ts
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import createOrUpdateUser from "./authGate";
 
 const modules = import.meta.glob("./**/*.ts");
+
+afterEach(() => vi.unstubAllEnvs());
 
 // Minimal args matching @convex-dev/auth createOrUpdateUser shape.
 function args(over: Partial<Record<string, unknown>> = {}) {
@@ -46,7 +48,17 @@ async function seedWithActivation(
 }
 
 describe("authGate.createOrUpdateUser", () => {
-  test("rejects an un-provisioned email (no users row created)", async () => {
+  test("open mode (default): a new email gets a fresh user account", async () => {
+    const t = convexTest(schema, modules);
+    const id = await t.run((ctx) =>
+      createOrUpdateUser(ctx as any, args({ profile: { email: "Fresh@x.com" } })), // eslint-disable-line @typescript-eslint/no-explicit-any
+    );
+    const row = await t.run((ctx) => ctx.db.get(id));
+    expect(row).toMatchObject({ email: "fresh@x.com", role: "user", status: "active", createdVia: "signup" });
+  });
+
+  test("link-only mode: rejects an un-provisioned email (no users row created)", async () => {
+    vi.stubEnv("SIGNUP_MODE", "link");
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
       await expect(

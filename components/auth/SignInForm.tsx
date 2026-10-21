@@ -1,18 +1,28 @@
 // components/auth/SignInForm.tsx
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
+import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { EmailCodeStep } from "./EmailCodeStep";
 
 export function SignInForm() {
   const { signIn } = useAuthActions();
   const router = useRouter();
+  const mode = useQuery(api.signup.mode, {});
   const [submitting, setSubmitting] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
+
+  if (confirmEmail) {
+    return <EmailCodeStep email={confirmEmail} onDone={() => router.push("/dashboard")} />;
+  }
 
   async function onPassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,8 +30,13 @@ export function SignInForm() {
     formData.set("flow", "signIn");
     setSubmitting(true);
     try {
-      await signIn("password", formData);
-      router.push("/dashboard");
+      const result = await signIn("password", formData);
+      if (result?.signingIn === false) {
+        // Email is set up and this account hasn't confirmed its address yet.
+        setConfirmEmail((formData.get("email") as string).trim().toLowerCase());
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err) {
       const msg =
         err instanceof ConvexError ? (err.data as string) : "Sign-in failed.";
@@ -32,7 +47,7 @@ export function SignInForm() {
   }
 
   return (
-    <form onSubmit={onPassword} className="space-y-4">
+    <form key="sign-in" onSubmit={onPassword} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="pw-email">Email</Label>
         <Input id="pw-email" name="email" type="email" autoComplete="email" required />
@@ -56,6 +71,12 @@ export function SignInForm() {
       >
         Forgot your password?
       </a>
+      {mode === "open" && (
+        <p className="text-center text-sm text-muted-foreground">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="underline">Sign up</Link>
+        </p>
+      )}
     </form>
   );
 }

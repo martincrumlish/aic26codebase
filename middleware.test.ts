@@ -28,6 +28,7 @@ const isProtectedRoute = createRouteMatcher([
 ]);
 const isPublicRoute = createRouteMatcher([
   "/signin(.*)",
+  "/signup(.*)",
   "/join(.*)",
   "/activate(.*)",
   "/reset(.*)",
@@ -51,6 +52,7 @@ describe("middleware route classification", () => {
   test("public routes match the public matcher and NOT the protected one", () => {
     for (const p of [
       "/signin",
+      "/signup",
       "/join/tok",
       "/activate/tok",
       "/reset",

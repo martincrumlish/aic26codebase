@@ -9,12 +9,19 @@ import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { EmailCodeStep } from "./EmailCodeStep";
 
 export function ActivateForm({ token }: { token: string }) {
   const { signIn } = useAuthActions();
   const result = useQuery(api.provisioning.validateToken, { token });
   const [submitting, setSubmitting] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
 
+  // Checked first: the activation link is already used up by the time the
+  // account is waiting for its email code.
+  if (confirmEmail) {
+    return <EmailCodeStep email={confirmEmail} onDone={() => (window.location.href = "/dashboard")} />;
+  }
   if (result === undefined) {
     return <p className="text-sm text-muted-foreground">Checking your activation link…</p>;
   }
@@ -31,8 +38,12 @@ export function ActivateForm({ token }: { token: string }) {
     fd.set("token", token);
     setSubmitting(true);
     try {
-      await signIn("password", fd);
-      window.location.href = "/dashboard";
+      const res = await signIn("password", fd);
+      if (res?.signingIn === false) {
+        setConfirmEmail((fd.get("email") as string).trim().toLowerCase());
+      } else {
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       toast.error(err instanceof ConvexError ? (err.data as string) : "Activation failed.");
     } finally {

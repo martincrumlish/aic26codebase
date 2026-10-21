@@ -1,6 +1,6 @@
 # AIC26 Codebase - Next.js + Convex SaaS Starter
 
-A starter for building **SaaS apps with controlled signup**. Users come in through the doors you open - a signup link per plan, a payment webhook that creates accounts on purchase, or an account an admin adds by hand - never through anonymous open registration. Clone it (or use it as a GitHub template), run one setup command, and you have a working app with sign-in, an admin console, user management, provisioning webhooks, password reset, transactional email, and bring-your-own-key AI support - all tested, all typed, ready for you to drop your actual product into.
+A starter for building **SaaS apps**. Anyone can sign up by default; flip one setting and it becomes **controlled signup**, where users only come in through the doors you open - a signup link per plan, a payment webhook that creates accounts on purchase, or an account an admin adds by hand. Clone it (or use it as a GitHub template), run one setup command, and you have a working app with sign-in, an admin console, user management, provisioning webhooks, password reset, transactional email, and bring-your-own-key AI support - all tested, all typed, ready for you to drop your actual product into.
 
 This is not a demo. The patterns are the hardened kind: signup that fails closed, write-only secret storage, cascade deletes, no account enumeration, and a backend where every function starts with an access check.
 
@@ -36,7 +36,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | Area | What's included |
 |---|---|
 | **Landing page** | A plain public home page at `/` (name and description from `lib/site.ts`) - replace it with your own marketing page |
-| **Auth pages** | `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code) |
+| **Auth pages** | `/signup` (open sign-up), `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code); email confirmation by code when email is set up |
 | **Auth gating** | `convex/authGate.ts` - signup only works with a valid signup link or a pre-created account, and fails closed otherwise; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
 | **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
@@ -47,7 +47,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
 | **Settings** | Profile, password change, AI key management |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 112 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 141 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -167,14 +167,21 @@ To keep one admin from locking out another, an admin can't revoke, delete, or se
 
 ### Auth flows
 
-There is **no anonymous open signup** - every account starts with a signup link, a webhook, or an admin, so you always control who gets in:
+Who can create an account is one setting, `SIGNUP_MODE` (a Convex env var):
 
-1. **Signup link (`/join/<token>`).** An admin generates one in `/admin` (optionally locked to one email address). The visitor picks an email and password; `authGate` only lets the signup through if the link is valid. Links are **standing by default - no expiry, no use limit** - so one link can be the signup URL for a whole plan (for example, behind your checkout's thank-you page). Rotate a link whenever you like: revoke it in the Signup links list and generate a fresh one. For a one-off or time-limited invite, `admin.createSignupLink` also accepts `maxUses` and `ttlDays`.
-2. **Activation (`/activate/<token>`).** For accounts that were created for someone (the first admin, or a webhook purchase). The person follows their activation link and sets a password. The link is the proof that the account is theirs: knowing the email alone is never enough to claim a pre-created account, and each link works once.
-3. **Sign-in (`/signin`).** Email + password. A wrong password and an unknown email get the same "Invalid email or password" answer, and sign-up failures likewise all get one message, so neither form reveals which emails have accounts (see the wrapper in `convex/auth.ts`).
-4. **Password reset (`/reset`).** Needs email to be set up. The user enters their email, receives an 8-digit code (valid 15 minutes), and sets a new password. The page never reveals whether an email has an account. Without email configured, the page says so and tells the user to ask an admin, who can use **Set password** in the users table.
+- **`open` (the default):** anyone can sign up at `/signup` with an email and password and gets the `user` role. The landing page shows **Get started** and the sign-in page links to sign-up.
+- **`link`:** no anonymous sign-up. Every account starts with a signup link, a webhook, or an admin, so you control who gets in: `npx convex env set SIGNUP_MODE link`.
 
-`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: existing accounts continue (revoked ones are rejected); a pre-created account is claimed only with its own activation token; a brand-new account needs a valid signup link; anything else **fails closed**.
+Both modes support all of the flows below:
+
+1. **Open sign-up (`/signup`, open mode only).** Email + password.
+2. **Signup link (`/join/<token>`).** An admin generates one in `/admin` (optionally locked to one email address). The visitor picks an email and password; `authGate` only lets the signup through if the link is valid. Links are **standing by default - no expiry, no use limit** - so one link can be the signup URL for a whole plan (for example, behind your checkout's thank-you page). Rotate a link whenever you like: revoke it in the Signup links list and generate a fresh one. For a one-off or time-limited invite, `admin.createSignupLink` also accepts `maxUses` and `ttlDays`.
+3. **Activation (`/activate/<token>`).** For accounts that were created for someone (the first admin, or a webhook purchase). The person follows their activation link and sets a password. The link is the proof that the account is theirs: knowing the email alone is never enough to claim a pre-created account, and each link works once.
+4. **Sign-in (`/signin`).** Email + password. A wrong password and an unknown email get the same "Invalid email or password" answer, so sign-in never reveals which emails have accounts (see the wrapper in `convex/auth.ts`). In link mode, sign-up failures likewise all get one message.
+5. **Email confirmation.** Once email is set up (`AUTH_RESEND_KEY`), every password account must confirm its address with an 8-digit emailed code before it gets a session - new sign-ups, and any older account that never confirmed. Without email, nobody is asked. It switches on as soon as the key is set; no redeploy needed.
+6. **Password reset (`/reset`).** Needs email to be set up. The user enters their email, receives an 8-digit code (valid 15 minutes), and sets a new password. The page never reveals whether an email has an account. Without email configured, the page says so and tells the user to ask an admin, who can use **Set password** in the users table.
+
+`convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: existing accounts continue (revoked ones are rejected); a pre-created account is claimed only with its own activation token; a valid signup link creates an account; in open mode anyone else gets a new `user` account; otherwise it **fails closed**.
 
 ### The admin console
 
@@ -269,7 +276,7 @@ Working with an AI coding assistant? `AGENTS.md` (also read by Claude Code via `
 These are the rules the codebase follows - future code (and AI assistants) should too. The same list is in `AGENTS.md`.
 
 - **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests sit next to their module (`convex/foo.test.ts`), component tests next to their component.
-- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the two that signed-out pages need: `provisioning.validateToken` and `passwordReset.available`.
+- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the three that signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, and `signup.mode`.
 - **Never link a sign-up to an existing account by email alone.** A pre-created account can only be claimed with its own activation token, which `convex/authGate.ts` checks and uses up. Any new way of pre-creating accounts must issue a token and present it the same way (see `admin.createUserAccount`).
 - **Write-only secrets.** Sensitive values (API keys, passwords) never reach the browser. Public queries return derived facts only (`last4`, booleans); raw values go through `internal*` functions.
 - **Cascade deletes.** New user-owned tables must be added to `deleteUserAccount` in `convex/admin.ts`. Deleting a user should leave nothing behind.
@@ -287,8 +294,9 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 | `SITE_URL` | ✅ | The app's address, used in sign-in redirects and emailed links (`http://localhost:3000` in dev, your real domain in prod) |
 | `ADMIN_EMAIL` | ✅ (once) | Email for the first admin, created by `seed:bootstrapAdmin` |
 | `JWT_PRIVATE_KEY`, `JWKS` | ✅ (auto) | Sign-in token keys - created by `npx @convex-dev/auth`; don't set by hand |
-| `AUTH_RESEND_KEY` | optional | Turns on email: password reset codes and invite emails |
+| `AUTH_RESEND_KEY` | optional | Turns on email: password reset codes, email confirmation codes, and invite emails |
 | `AUTH_EMAIL_FROM` | optional | From address, e.g. `Your App <hello@yourdomain.com>` (defaults to Resend's test sender) |
+| `SIGNUP_MODE` | optional | `open` (default: anyone can sign up) or `link` (signup links, webhook, and admin-created accounts only) |
 | `PROVISION_WEBHOOK_SECRET` | optional | Signing secret for `POST /provision`. Unset means the webhook rejects everything |
 | `OPENROUTER_API_KEY` | optional | App-wide AI key; users' own keys take priority |
 
@@ -297,7 +305,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (112 tests)
+npm run test:run       # everything (141 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -333,7 +341,7 @@ app/
     settings/          #   profile / password / AI key
   activate/[token]/    # activation (accounts created for someone)
   join/[token]/        # signup via link
-  signin/  reset/      # sign-in and password reset
+  signup/  signin/  reset/  # sign-up, sign-in, password reset
 components/
   admin/               # admin console (users table, signup links, dialogs)
   app-shell/           # sidebar, phone menu, account menu

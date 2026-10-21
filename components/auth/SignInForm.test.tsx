@@ -3,11 +3,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi, beforeEach } from "vitest";
 
-const signIn = vi.fn(
-  (_provider: string, _data: FormData) => Promise.resolve()
+const signIn = vi.fn((_provider: string, _data: FormData) =>
+  Promise.resolve({ signingIn: true } as { signingIn: boolean }),
 );
 vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({ signIn, signOut: vi.fn() }),
+}));
+let mode: "open" | "link" = "open";
+vi.mock("convex/react", async (orig) => ({
+  ...(await orig<typeof import("convex/react")>()),
+  useQuery: vi.fn(() => mode),
 }));
 
 const pushMock = vi.fn();
@@ -17,18 +22,22 @@ vi.mock("next/navigation", () => ({
 
 import { SignInForm } from "./SignInForm";
 
+async function fillAndSubmit(password = "supersecret123") {
+  await userEvent.type(screen.getByLabelText(/email/i), "user@x.com");
+  await userEvent.type(screen.getByLabelText(/password/i), password);
+  await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
+}
+
 describe("SignInForm", () => {
   beforeEach(() => {
+    mode = "open";
     signIn.mockClear();
     pushMock.mockClear();
   });
 
   test("submits provider 'password' with flow 'signIn'", async () => {
     render(<SignInForm />);
-    await userEvent.type(screen.getByLabelText(/email/i), "user@x.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "supersecret123");
-    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-
+    await fillAndSubmit();
     expect(signIn).toHaveBeenCalledWith("password", expect.any(FormData));
     const fd = signIn.mock.calls[0][1] as FormData;
     expect(fd.get("flow")).toBe("signIn");
@@ -37,20 +46,31 @@ describe("SignInForm", () => {
 
   test("navigates to /dashboard after successful sign-in", async () => {
     render(<SignInForm />);
-    await userEvent.type(screen.getByLabelText(/email/i), "user@x.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "supersecret123");
-    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-
+    await fillAndSubmit();
     expect(pushMock).toHaveBeenCalledWith("/dashboard");
   });
 
   test("does not navigate when sign-in throws", async () => {
     signIn.mockRejectedValueOnce(new Error("bad credentials"));
     render(<SignInForm />);
-    await userEvent.type(screen.getByLabelText(/email/i), "user@x.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "wrongpassword");
-    await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
-
+    await fillAndSubmit("wrongpassword");
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  test("shows the code step when the account still needs to confirm its email", async () => {
+    signIn.mockResolvedValueOnce({ signingIn: false });
+    render(<SignInForm />);
+    await fillAndSubmit();
+    expect(screen.getByLabelText(/confirmation code/i)).toBeInTheDocument();
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  test("links to sign-up only when sign-up is open", () => {
+    const { unmount } = render(<SignInForm />);
+    expect(screen.getByRole("link", { name: /sign up/i })).toHaveAttribute("href", "/signup");
+    unmount();
+    mode = "link";
+    render(<SignInForm />);
+    expect(screen.queryByRole("link", { name: /sign up/i })).not.toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { ConvexError } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { REVOKED, SIGNUP_REJECTED } from "./lib/authMessages";
+import { signupMode } from "./lib/signupMode";
 
 type Ctx = MutationCtx;
 type Args = {
@@ -95,7 +96,21 @@ export default async function createOrUpdateUser(
     return userId;
   }
 
-  // 4. Otherwise reject — NO users row, NO authAccount, NO session.
+  // 4. Open sign-up (the default; see lib/signupMode.ts): anyone else gets a
+  //    fresh account with role "user". Pre-created accounts never reach here —
+  //    step 2 handled (and guarded) them above.
+  if (signupMode() === "open") {
+    return await ctx.db.insert("users", {
+      email,
+      name: (args.profile.name as string) ?? undefined,
+      role: "user",
+      status: "active",
+      createdVia: "signup",
+      createdAt: now,
+    });
+  }
+
+  // 5. Otherwise reject — NO users row, NO authAccount, NO session.
   throw new ConvexError(NOT_ENABLED);
 }
 

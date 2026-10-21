@@ -46,8 +46,12 @@ const sessionsOf = (t: T, userId: Id<"users">) =>
     ctx.db.query("authSessions").withIndex("userId", (q) => q.eq("userId", userId)).collect(),
   );
 
-describe("sign-up never reveals whether an email has an account", () => {
+// In open mode an unknown email can simply sign up, so the "same answer"
+// guarantee is about link-only mode. (Any app with open sign-up reveals that
+// an email is taken when someone tries to register it.)
+describe("link-only sign-up never reveals whether an email has an account", () => {
   test("an existing account, an unknown email, and an unclaimed pre-created account all get the same answer", async () => {
+    vi.stubEnv("SIGNUP_MODE", "link");
     const t = convexTest(schema, modules);
     await setup(t);
     await t.mutation(internal.provisioning.ingestEvent, {

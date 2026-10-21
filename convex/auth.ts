@@ -6,7 +6,9 @@ import { ConvexError, type Value } from "convex/values";
 import type { DataModel, Id } from "./_generated/dataModel";
 import createOrUpdateUser from "./authGate";
 import { PasswordResetCode } from "./passwordReset";
+import { EmailConfirmationCode } from "./lib/emailCode";
 import {
+  CODE_INVALID,
   PASSWORD_TOO_SHORT,
   REVOKED,
   SIGNIN_REJECTED,
@@ -14,10 +16,10 @@ import {
 } from "./lib/authMessages";
 
 // —— Password with GATED profile() (a thrown ConvexError reaches the client) ——
-const password = Password<DataModel>({
+const passwordConfig = {
   // "Forgot your password?" — emails a reset code (needs AUTH_RESEND_KEY).
   reset: PasswordResetCode,
-  profile(params, _ctx) {
+  profile(params: Record<string, Value | undefined>) {
     const email = (params.email as string)?.toLowerCase().trim();
     if (!email) throw new ConvexError("Email is required.");
     return {
@@ -27,7 +29,14 @@ const password = Password<DataModel>({
       token: (params.token as string) ?? undefined,
     };
   },
-});
+};
+
+// Two otherwise-identical providers: one makes people confirm their email with
+// a code before they get a session, one doesn't. The wrapper below picks per
+// request, so email confirmation switches on as soon as AUTH_RESEND_KEY is set
+// (no redeploy) and never blocks sign-in on an app without email.
+const plainPassword = Password<DataModel>(passwordConfig);
+const password = Password<DataModel>({ ...passwordConfig, verify: EmailConfirmationCode });
 
 // Referenced by name (not via _generated/api) to avoid a circular import.
 const userStatus = makeFunctionReference<
@@ -41,8 +50,9 @@ type Authorize = (
   ctx: GenericActionCtx<DataModel>,
 ) => Promise<{ userId: Id<"users"> } | null>;
 
-// Every password sign-in and sign-up runs through this wrapper. It adds two
-// guarantees the library doesn't give on its own:
+// Every password sign-in and sign-up runs through this wrapper. It picks the
+// email-confirming provider when email is set up, and adds two guarantees the
+// library doesn't give on its own:
 //  1. Failures never reveal whether an email has an account. The library's own
 //     errors ("Account <email> already exists", "InvalidAccountId" vs
 //     "InvalidSecret") become one fixed message per flow.
@@ -52,15 +62,20 @@ type Authorize = (
 //     is treated as a sign-in).
 // Convex Auth reads `authorize` from the provider's `options` (it merges them
 // over the provider when it loads it), so that's where the wrapper must go.
-const base = password as unknown as { options: { authorize: Authorize } };
+const optionsOf = (p: typeof password) =>
+  (p as unknown as { options: { authorize: Authorize } }).options;
 const guardedPassword = {
   ...password,
   options: {
-    ...base.options,
+    // Registers the confirmation and reset providers either way.
+    ...optionsOf(password),
     authorize: (async (params, ctx) => {
+      const impl = process.env.AUTH_RESEND_KEY
+        ? optionsOf(password).authorize
+        : optionsOf(plainPassword).authorize;
       let result: Awaited<ReturnType<Authorize>>;
       try {
-        result = await base.options.authorize(params, ctx);
+        result = await impl(params, ctx);
       } catch (err) {
         // A ConvexError is a deliberate, user-facing message (from authGate).
         if (err instanceof ConvexError) throw err;
@@ -68,6 +83,7 @@ const guardedPassword = {
         if (message === "Invalid password") throw new ConvexError(PASSWORD_TOO_SHORT);
         if (params.flow === "signUp") throw new ConvexError(SIGNUP_REJECTED);
         if (params.flow === "signIn") throw new ConvexError(SIGNIN_REJECTED);
+        if (params.flow === "email-verification") throw new ConvexError(CODE_INVALID);
         throw err; // reset flows: handled by the reset page (see ResetForm)
       }
       if (result) {

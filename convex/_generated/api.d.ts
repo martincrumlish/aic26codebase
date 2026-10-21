@@ -16,12 +16,15 @@ import type * as authGate from "../authGate.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as lib_authMessages from "../lib/authMessages.js";
+import type * as lib_emailCode from "../lib/emailCode.js";
 import type * as lib_resend from "../lib/resend.js";
+import type * as lib_signupMode from "../lib/signupMode.js";
 import type * as password from "../password.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as provisionHttp from "../provisionHttp.js";
 import type * as provisioning from "../provisioning.js";
 import type * as seed from "../seed.js";
+import type * as signup from "../signup.js";
 import type * as users from "../users.js";
 
 import type {
@@ -39,12 +42,15 @@ declare const fullApi: ApiFromModules<{
   email: typeof email;
   http: typeof http;
   "lib/authMessages": typeof lib_authMessages;
+  "lib/emailCode": typeof lib_emailCode;
   "lib/resend": typeof lib_resend;
+  "lib/signupMode": typeof lib_signupMode;
   password: typeof password;
   passwordReset: typeof passwordReset;
   provisionHttp: typeof provisionHttp;
   provisioning: typeof provisioning;
   seed: typeof seed;
+  signup: typeof signup;
   users: typeof users;
 }>;
 
