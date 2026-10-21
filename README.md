@@ -52,7 +52,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
 | **Settings** | Profile, billing, password change, AI key management |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 243 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 257 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -371,7 +371,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (243 tests)
+npm run test:run       # everything (257 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
