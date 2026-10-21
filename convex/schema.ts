@@ -27,7 +27,10 @@ export default defineSchema({
     createdAt: v.optional(v.number()),
   })
     .index("by_email", ["email"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    // Admin > Users search (admin.listUsers).
+    .searchIndex("search_email", { searchField: "email" })
+    .searchIndex("search_name", { searchField: "name" }),
 
   provisioningTokens: defineTable({
     token: v.string(),

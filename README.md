@@ -41,7 +41,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Auth pages** | `/signup` (open sign-up), `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code); email confirmation by code when email is set up; optional **Continue with Google** (`npm run setup:google`) |
 | **Auth gating** | `convex/authGate.ts` - open sign-up by default, or `SIGNUP_MODE=link` for signup links and pre-created accounts only; pre-created accounts can only be claimed with their own activation link; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
-| **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
+| **Admin console** (`/admin`) | Stats; a users table with search (by name or email) and paging (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
 | **Branding** (`/admin/branding`) | Admins set the app's name, description, brand and button colours, logo and sign-in artwork, with a live preview. Applied to every page, signed in or not, with no redeploy; text colours are picked automatically to stay readable |
 | **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
 | **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from your payment platform or any other system |
@@ -53,7 +53,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 297 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 302 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -401,7 +401,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (297 tests)
+npm run test:run       # everything (302 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode

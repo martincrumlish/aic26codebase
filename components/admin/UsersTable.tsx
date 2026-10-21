@@ -1,7 +1,7 @@
 // components/admin/UsersTable.tsx
 "use client";
-import { useState } from "react";
-import { useAction, useQuery, useMutation } from "convex/react";
+import { useEffect, useState } from "react";
+import { useAction, useMutation, usePaginatedQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -30,6 +30,7 @@ import {
   EllipsisIcon,
   KeyRoundIcon,
   RotateCcwIcon,
+  SearchIcon,
   ShieldIcon,
   ShieldOffIcon,
   Trash2Icon,
@@ -44,8 +45,21 @@ async function attempt(fn: () => Promise<unknown>, success: string) {
   }
 }
 
+const PAGE_SIZE = 25;
+
 export function UsersTable({ currentUserId }: { currentUserId: string }) {
-  const users = useQuery(api.admin.listUsers, {});
+  // Search runs a moment after typing stops, not on every keystroke.
+  const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(query.trim()), 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const { results: users, status, loadMore } = usePaginatedQuery(
+    api.admin.listUsers,
+    search ? { search } : {},
+    { initialNumItems: PAGE_SIZE },
+  );
   const setRole = useMutation(api.admin.setUserRole);
   const revoke = useMutation(api.admin.revokeUser);
   const restore = useMutation(api.admin.restoreUser);
@@ -60,8 +74,6 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
 
   const [pwTarget, setPwTarget] = useState<{ id: Id<"users">; email: string } | null>(null);
   const [savingPw, setSavingPw] = useState(false);
-
-  if (users === undefined) return <p className="text-sm text-muted-foreground">Loading users…</p>;
 
   const confirmReady =
     target !== null && confirmText.trim().toLowerCase() === target.email.toLowerCase();
@@ -94,6 +106,28 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
 
   return (
     <>
+      <div className="border-b px-5 py-3">
+        <div className="relative max-w-sm">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            aria-label="Search users"
+            placeholder="Search by name or email"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+      {status === "LoadingFirstPage" ? (
+        <div className="space-y-3 px-5 py-6" aria-busy="true">
+          {[0, 1, 2].map((i) => <div key={i} className="h-8 animate-pulse rounded bg-muted" />)}
+        </div>
+      ) : users.length === 0 ? (
+        <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+          {search ? `No users match "${search}".` : "No users yet."}
+        </p>
+      ) : (
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -201,6 +235,12 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
           </TableBody>
         </Table>
       </div>
+      )}
+      {status === "CanLoadMore" && (
+        <div className="flex justify-center border-t px-5 py-3">
+          <Button variant="outline" size="sm" onClick={() => loadMore(PAGE_SIZE)}>Load more</Button>
+        </div>
+      )}
 
       <Dialog open={pwTarget !== null} onOpenChange={(o) => { if (!o) setPwTarget(null); }}>
         <DialogContent>

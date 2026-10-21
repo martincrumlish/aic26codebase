@@ -8,6 +8,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   createAccount,
@@ -34,31 +35,49 @@ function isActiveSignupLink(tk: Doc<"provisioningTokens">, now: number) {
 
 // ── Users ────────────────────────────────────────────────────────────────────
 
+const UserRow = v.object({
+  _id: v.id("users"),
+  _creationTime: v.number(),
+  email: v.optional(v.string()),
+  name: v.optional(v.string()),
+  role: v.optional(Role),
+  status: v.optional(v.union(v.literal("active"), v.literal("revoked"))),
+  createdAt: v.optional(v.number()),
+});
+
+const userRow = (u: Doc<"users">) => ({
+  _id: u._id,
+  _creationTime: u._creationTime,
+  email: u.email,
+  name: u.name,
+  role: u.role,
+  status: u.status,
+  createdAt: u.createdAt,
+});
+
+const SEARCH_CAP = 50;
+
+/**
+ * Users, newest first, a page at a time. With `search`, the best matches by
+ * email or name instead (up to 50, all in one page).
+ */
 export const listUsers = query({
-  args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      _creationTime: v.number(),
-      email: v.optional(v.string()),
-      name: v.optional(v.string()),
-      role: v.optional(Role),
-      status: v.optional(v.union(v.literal("active"), v.literal("revoked"))),
-      createdAt: v.optional(v.number()),
-    }),
-  ),
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator, search: v.optional(v.string()) },
+  returns: paginationResultValidator(UserRow),
+  handler: async (ctx, { paginationOpts, search }) => {
     await requireAdmin(ctx);
-    const rows = await ctx.db.query("users").order("desc").take(LIST_CAP);
-    return rows.map((u) => ({
-      _id: u._id,
-      _creationTime: u._creationTime,
-      email: u.email,
-      name: u.name,
-      role: u.role,
-      status: u.status,
-      createdAt: u.createdAt,
-    }));
+    const term = search?.trim();
+    if (term) {
+      const [byEmail, byName] = await Promise.all([
+        ctx.db.query("users").withSearchIndex("search_email", (q) => q.search("email", term)).take(SEARCH_CAP),
+        ctx.db.query("users").withSearchIndex("search_name", (q) => q.search("name", term)).take(SEARCH_CAP),
+      ]);
+      const seen = new Set<string>();
+      const matches = [...byEmail, ...byName].filter((u) => !seen.has(u._id) && seen.add(u._id));
+      return { page: matches.slice(0, SEARCH_CAP).map(userRow), isDone: true, continueCursor: "" };
+    }
+    const result = await ctx.db.query("users").order("desc").paginate(paginationOpts);
+    return { ...result, page: result.page.map(userRow) };
   },
 });
 

@@ -28,6 +28,8 @@ const gateArgs = (email: string, token: string) => ({
   profile: { email, token },
 });
 
+const PAGE = { numItems: 50, cursor: null };
+
 beforeEach(() => vi.stubEnv("PROVISION_WEBHOOK_SECRET", "secret"));
 afterEach(() => vi.unstubAllEnvs());
 
@@ -36,7 +38,7 @@ describe("admin functions are admin-only", () => {
     const t = convexTest(schema, modules);
     const userId = await seed(t, "user");
     const asUser = t.withIdentity({ subject: userId });
-    await expect(asUser.query(api.admin.listUsers, {})).rejects.toThrow(/Admin role required/);
+    await expect(asUser.query(api.admin.listUsers, { paginationOpts: PAGE })).rejects.toThrow(/Admin role required/);
     await expect(asUser.query(api.admin.platformStats, {})).rejects.toThrow(/Admin role required/);
     await expect(asUser.query(api.admin.listSignupLinks, {})).rejects.toThrow(/Admin role required/);
     await expect(asUser.mutation(api.admin.createSignupLink, {})).rejects.toThrow(/Admin role required/);
@@ -54,14 +56,62 @@ describe("listUsers / platformStats", () => {
     const userId = await seed(t, "user");
     const asAdmin = t.withIdentity({ subject: adminId });
 
-    const list = await asAdmin.query(api.admin.listUsers, {});
-    const roles = Object.fromEntries(list.map((u) => [u._id, u.role]));
+    const list = await asAdmin.query(api.admin.listUsers, { paginationOpts: PAGE });
+    const roles = Object.fromEntries(list.page.map((u) => [u._id, u.role]));
     expect(roles[adminId]).toBe("admin");
     expect(roles[userId]).toBe("user");
 
     await asAdmin.mutation(api.admin.createSignupLink, {});
     const stats = await asAdmin.query(api.admin.platformStats, {});
     expect(stats).toEqual({ users: 1, admins: 1, activeLinks: 1 });
+  });
+
+  test("pages through users, newest first", async () => {
+    const t = convexTest(schema, modules);
+    const adminId = await seed(t, "admin");
+    const asAdmin = t.withIdentity({ subject: adminId });
+    await t.run(async (ctx) => {
+      for (let i = 1; i <= 30; i++) {
+        await ctx.db.insert("users", {
+          email: `person${i}@x.com`, role: "user", status: "active", createdVia: "seed", createdAt: i,
+        });
+      }
+    });
+
+    const first = await asAdmin.query(api.admin.listUsers, { paginationOpts: { numItems: 25, cursor: null } });
+    expect(first.page).toHaveLength(25);
+    expect(first.page[0].email).toBe("person30@x.com");
+    expect(first.isDone).toBe(false);
+
+    const rest = await asAdmin.query(api.admin.listUsers, {
+      paginationOpts: { numItems: 25, cursor: first.continueCursor },
+    });
+    expect(rest.page).toHaveLength(6); // 5 more people + the admin
+    expect(rest.isDone).toBe(true);
+  });
+
+  // convex-test's search differs from real Convex: it only splits on spaces
+  // (Convex also splits on punctuation, so "northwind" finds rhea@northwind.io)
+  // and fails on documents missing the field. So everyone here has a name,
+  // and the email search uses a prefix, which works in both.
+  test("search finds people by email or name", async () => {
+    const t = convexTest(schema, modules);
+    const adminId = await seed(t, "admin");
+    const asAdmin = t.withIdentity({ subject: adminId });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(adminId, { name: "Ada Admin" });
+      await ctx.db.insert("users", { email: "rhea@northwind.io", name: "Rhea Okafor", role: "user", status: "active" });
+      await ctx.db.insert("users", { email: "tomas@kestrel.dev", name: "Tomás Lindqvist", role: "user", status: "active" });
+    });
+
+    const byEmail = await asAdmin.query(api.admin.listUsers, { paginationOpts: PAGE, search: "rhea@north" });
+    expect(byEmail.page.map((u) => u.email)).toEqual(["rhea@northwind.io"]);
+
+    const byName = await asAdmin.query(api.admin.listUsers, { paginationOpts: PAGE, search: "Lindqvist" });
+    expect(byName.page.map((u) => u.email)).toEqual(["tomas@kestrel.dev"]);
+
+    const none = await asAdmin.query(api.admin.listUsers, { paginationOpts: PAGE, search: "nobody" });
+    expect(none.page).toEqual([]);
   });
 });
 
@@ -187,7 +237,7 @@ describe("revoke / restore / role changes", () => {
     await asAdmin.mutation(api.admin.setUserRole, { userId, role: "admin" });
     expect((await t.run((ctx) => ctx.db.get(userId)))?.role).toBe("admin");
     // The promoted user can now use admin functions.
-    await t.withIdentity({ subject: userId }).query(api.admin.listUsers, {});
+    await t.withIdentity({ subject: userId }).query(api.admin.listUsers, { paginationOpts: PAGE });
 
     await asAdmin.mutation(api.admin.setUserRole, { userId, role: "user" });
     expect((await t.run((ctx) => ctx.db.get(userId)))?.role).toBe("user");

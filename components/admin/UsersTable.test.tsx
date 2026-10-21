@@ -1,5 +1,5 @@
 // components/admin/UsersTable.test.tsx
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { getFunctionName } from "convex/server";
@@ -9,14 +9,20 @@ import { getFunctionName } from "convex/server";
 const spies: Record<string, ReturnType<typeof vi.fn>> = {};
 const spyFor = (name: string) => (spies[name] ??= vi.fn(() => Promise.resolve(null)));
 
+const USERS = [
+  { _id: "me", _creationTime: 4, email: "me@x.com", role: "admin", status: "active" },
+  { _id: "a2", _creationTime: 3, email: "other-admin@x.com", role: "admin", status: "active" },
+  { _id: "u1", _creationTime: 2, email: "amy@x.com", name: "Amy", role: "user", status: "active" },
+  { _id: "u2", _creationTime: 1, email: "ben@x.com", name: "Ben", role: "user", status: "revoked" },
+];
+let results = USERS;
+let status = "Exhausted";
+const loadMore = vi.fn();
+const paginated = vi.fn((_ref: unknown, _args: unknown) => ({ results, status, loadMore }));
+
 vi.mock("convex/react", async (orig) => ({
   ...(await orig<typeof import("convex/react")>()),
-  useQuery: vi.fn(() => [
-    { _id: "me", _creationTime: 4, email: "me@x.com", role: "admin", status: "active" },
-    { _id: "a2", _creationTime: 3, email: "other-admin@x.com", role: "admin", status: "active" },
-    { _id: "u1", _creationTime: 2, email: "amy@x.com", name: "Amy", role: "user", status: "active" },
-    { _id: "u2", _creationTime: 1, email: "ben@x.com", name: "Ben", role: "user", status: "revoked" },
-  ]),
+  usePaginatedQuery: (ref: unknown, args: unknown) => paginated(ref, args),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   useMutation: vi.fn((ref: any) => spyFor(getFunctionName(ref))),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -39,9 +45,35 @@ async function menuItems(email: string) {
   return screen.getAllByRole("menuitem").map((m) => m.textContent);
 }
 
-beforeEach(() => Object.values(spies).forEach((s) => s.mockClear()));
+beforeEach(() => {
+  Object.values(spies).forEach((s) => s.mockClear());
+  results = USERS;
+  status = "Exhausted";
+  loadMore.mockClear();
+  paginated.mockClear();
+});
 
 describe("UsersTable", () => {
+  test("search sends what you type (after a pause), and says when nothing matches", async () => {
+    render(<UsersTable currentUserId="me" />);
+    await userEvent.type(screen.getByRole("searchbox", { name: /search users/i }), "amy");
+    await waitFor(() => expect(paginated).toHaveBeenLastCalledWith(expect.anything(), { search: "amy" }));
+  });
+
+  test("says when a search matches nobody", async () => {
+    results = [];
+    render(<UsersTable currentUserId="me" />);
+    await userEvent.type(screen.getByRole("searchbox", { name: /search users/i }), "zed");
+    expect(await screen.findByText(/no users match "zed"/i)).toBeInTheDocument();
+  });
+
+  test("Load more fetches the next page", async () => {
+    status = "CanLoadMore";
+    render(<UsersTable currentUserId="me" />);
+    await userEvent.click(screen.getByRole("button", { name: /load more/i }));
+    expect(loadMore).toHaveBeenCalledWith(25);
+  });
+
   test("your own row has no actions; other admins can only have admin rights removed", async () => {
     render(<UsersTable currentUserId="me" />);
     expect(row("me@x.com").queryAllByRole("button")).toHaveLength(0);
