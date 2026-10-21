@@ -22,7 +22,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
   - [The Projects example](#the-projects-example)
   - [Provisioning webhook](#provisioning-webhook)
   - [Email](#email)
-  - [BYOK AI (OpenRouter)](#byok-ai-openrouter)
+  - [AI chat and keys (OpenRouter)](#ai-chat-and-keys-openrouter)
 - [Using this as the base for a new project](#using-this-as-the-base-for-a-new-project)
 - [Project conventions](#project-conventions)
 - [Environment variable reference](#environment-variable-reference)
@@ -45,13 +45,14 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
 | **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from your payment platform or any other system |
 | **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
-| **BYOK AI** | Per-user OpenRouter API keys, verified before saving, stored write-only (the browser only ever sees the last 4 characters), with an optional app-wide fallback key |
+| **AI chat** (`/chat`) | Saved conversations with replies that stream in live, Markdown rendering, a model picker (Claude, GPT, Gemini, DeepSeek via OpenRouter), rename and delete |
+| **AI keys** | Users can bring their own OpenRouter key (verified before saving, stored write-only: the browser only ever sees the last 4 characters); Pro users can use the app's key instead |
 | **App shell** | Sidebar on desktop; a top bar with a slide-out menu on phones; account menu with settings, dark/light mode, and sign-out |
 | **Projects example** (`/projects`) | A complete worked feature to copy: paginated list, detail page, edit, file upload to Convex storage, delete, owner checks, and a Free-plan limit (3 projects) with an upgrade prompt |
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
-| **Settings** | Profile, password change, AI key management |
+| **Settings** | Profile, billing, password change, AI key management |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 201 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 227 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -63,7 +64,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | [Convex](https://www.convex.dev) | Database, backend functions, sign-in, webhooks, file storage | Yes - to run it at all |
 | [Vercel](https://vercel.com) | Hosts the website when you go live | Only to deploy |
 | [Resend](https://resend.com) | Sends email (password reset codes, invite emails) | Optional |
-| [OpenRouter](https://openrouter.ai) | AI models, if you add AI features | Optional |
+| [OpenRouter](https://openrouter.ai) | AI models for the chat (one key reaches Claude, GPT, Gemini and more) | Optional |
 
 **Code stack:**
 
@@ -274,13 +275,28 @@ Email is optional. With `AUTH_RESEND_KEY` unset, the app works normally: the inv
 - **Password reset codes** go through the same helper but fail loudly, because the user is waiting for the code.
 - **To enable:** `npx convex env set AUTH_RESEND_KEY re_...` and optionally `npx convex env set AUTH_EMAIL_FROM "Your App <hello@yourdomain.com>"` (the domain must be verified in Resend).
 
-### BYOK AI (OpenRouter)
+### AI chat and keys (OpenRouter)
 
-`convex/ai.ts` lets each user bring their own [OpenRouter](https://openrouter.ai) key, so they pay for their own AI usage:
+`/chat` is a working AI chat built on [OpenRouter](https://openrouter.ai), which gives one API key access to models from Anthropic, OpenAI, Google and others.
 
-- **Settings > AI**: paste a key, click **Save & verify**. The key is checked with a live call to OpenRouter's authenticated `/api/v1/key` endpoint before it's saved (`/api/v1/models` is public and can't validate keys - don't "simplify" this).
-- **Write-only storage**: the raw key lives in the `userApiKeys` table and can only be read by `internal.ai.getOpenRouterKeyForUser`, which the browser can't call. The public `getAiStatus` returns `{enabled, source: "own" | "app", last4}` and nothing more.
-- **Which key gets used** by any AI feature you build: the user's own key, then the app-wide `OPENROUTER_API_KEY` env var, otherwise AI is off.
+**Which key pays** (`convex/lib/aiKey.ts`):
+1. The user's own OpenRouter key, if they've added one in **Settings > AI**. They pay for their own usage, on any plan.
+2. Otherwise the app's key (`OPENROUTER_API_KEY`), **if their plan includes it** - Pro does, Free doesn't (`PLANS.<plan>.limits.appAiKey` in `convex/lib/plans.ts`). To give everyone AI on your account, set `appAiKey: true` on Free too.
+3. Otherwise chat explains how to turn AI on (add a key, or upgrade to Pro).
+
+To try it: `npx convex env set OPENROUTER_API_KEY sk-or-v1-...` and upgrade your account to Pro, or paste your own key in Settings > AI.
+
+**How it works** (`convex/chat.ts`, with the steps commented at the top):
+- `send` saves your message and an empty reply marked "streaming", then schedules `generate`.
+- `generate` calls OpenRouter with `stream: true` and writes the growing reply into the database a few times a second. The page's `listMessages` query is reactive, so the reply streams into every open tab with no streaming code in the browser.
+- Errors (bad key, no credits, rate limits, a model that's unavailable) are written onto the reply in plain English, and the conversation can carry on.
+- Only the models in `convex/lib/aiModels.ts` can be used, so nobody can run an expensive model on your key. Edit that list to change what's offered; the first one is the default.
+- The assistant's instructions are `SYSTEM_PROMPT` at the top of `convex/chat.ts` - give it your product's voice there.
+- Replies are rendered as Markdown (`components/chat/Markdown.tsx`), which never renders raw HTML from the model.
+
+**Key storage:** the raw key lives in the `userApiKeys` table and is only read on the server (`lib/aiKey.ts`, `internal.ai.getOpenRouterKeyForUser`). The public `getAiStatus` returns `{enabled, source: "own" | "app", last4, appKeyNeedsPro}` and nothing more. Keys are checked with a live call to OpenRouter's authenticated `/api/v1/key` endpoint before saving (`/api/v1/models` is public and can't validate keys - don't "simplify" this).
+
+Deleting a conversation, or a user, removes the messages in scheduled batches, since a long chat can have thousands. There's no per-user usage cap on the app key: if Pro users get it, watch your OpenRouter spend, or add a cap in `send`.
 
 ---
 
@@ -345,7 +361,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 | `AUTH_EMAIL_FROM` | optional | From address, e.g. `Your App <hello@yourdomain.com>` (defaults to Resend's test sender) |
 | `SIGNUP_MODE` | optional | `open` (default: anyone can sign up) or `link` (signup links, webhook, and admin-created accounts only) |
 | `PROVISION_WEBHOOK_SECRET` | optional | Signing secret for `POST /provision`. Unset means the webhook rejects everything |
-| `OPENROUTER_API_KEY` | optional | App-wide AI key; users' own keys take priority |
+| `OPENROUTER_API_KEY` | optional | The app's AI key, used for plans that include it (Pro by default); users' own keys take priority |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | optional | Billing. Set all four with `npm run setup:stripe` rather than by hand. Unset means paid plans show as not set up yet |
 
 `.env.local` (written by `npx convex dev`, gitignored) holds only the addresses of your dev deployment: `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`.
@@ -353,7 +369,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (201 tests)
+npm run test:run       # everything (227 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -385,6 +401,7 @@ app/
   page.tsx             # "/" - landing page (signed in: redirects to dashboard)
   (app)/               # signed-in pages, wrapped in the app shell
     admin/             #   admin console
+    chat/              #   AI chat (new chat + [id] conversation)
     dashboard/         #   <- replace with your product
     projects/          #   the example feature (list + [id] detail)
     settings/          #   profile / password / billing / AI key
@@ -396,6 +413,7 @@ components/
   app-shell/           # sidebar, phone menu, account menu
   auth/                # sign-in, signup, activation, reset forms
   billing/             # pricing cards, billing card, post-purchase welcome
+  chat/                # chat layout, thread, conversation list, Markdown
   landing/             # <- replace with your landing page
   projects/            # the example feature's list and detail
   settings/            # settings cards (profile, password, AI)
@@ -409,7 +427,10 @@ convex/
   provisioning.ts      # signup/activation links: validate and consume
   provisionHttp.ts     # POST /provision webhook
   email.ts  lib/resend.ts  # sending email
-  ai.ts                # BYOK OpenRouter keys
+  ai.ts                # users' own OpenRouter keys (Settings > AI)
+  chat.ts              # AI chat: conversations, streamed replies
+  lib/aiKey.ts         # which key pays for a user's AI calls
+  lib/aiModels.ts      # the models the chat offers
   billing.ts           # Stripe: plans, checkout, portal, pay-first purchases
   projects.ts          # the example feature - copy this to build your own
   lib/plans.ts         # your plans (names, features, limits); prices in lib/proPrice.json

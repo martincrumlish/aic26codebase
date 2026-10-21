@@ -459,8 +459,9 @@ export const setUserPassword = action({
 // deleteUserAccount HARD-deletes a user and all their data.
 //
 // Tables touched (verified against schema.ts):
-//   • App data: userApiKeys (by_user). When you add owner-keyed tables, cascade
-//     them here FIRST (delete by owner index, free any ctx.storage blobs).
+//   • App data: projects, billingAccounts, userApiKeys; conversations and
+//     chatMessages (in scheduled batches). When you add owner-keyed tables,
+//     cascade them here FIRST (delete by owner index, free any storage blobs).
 //   • Convex Auth: authAccounts (userIdAndProvider), authVerificationCodes
 //       (accountId), authSessions (userId), authRefreshTokens (sessionId)
 //   • Finally: the users row.
@@ -500,6 +501,10 @@ export const deleteUserAccount = mutation({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     await Promise.all(apiKeys.map((k) => ctx.db.delete(k._id)));
+
+    // AI chat: can be thousands of messages, so it's deleted in batches by a
+    // scheduled function rather than all inside this mutation.
+    await ctx.scheduler.runAfter(0, internal.chat.purge, { ownerId: userId });
 
     // ── 2. Convex Auth records (so the user can't sign in & no stale rows) ──
     // authAccounts: "userIdAndProvider" index, keyed by [userId, provider].

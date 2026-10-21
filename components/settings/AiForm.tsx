@@ -1,6 +1,7 @@
 // components/settings/AiForm.tsx — BYOK OpenRouter key card.
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
@@ -55,6 +56,12 @@ export function AiForm() {
           <>AI features are enabled with your key ending in <code>…{status.last4}</code>.</>
         ) : status.source === "app" ? (
           <>AI features are enabled with the app&apos;s built-in key. Add your own to use your OpenRouter account instead.</>
+        ) : status.appKeyNeedsPro ? (
+          <>
+            The built-in AI is included with Pro.{" "}
+            <Link href="/pricing" className="font-medium text-foreground underline">Upgrade</Link>, or paste
+            your own OpenRouter API key to use AI on the Free plan.
+          </>
         ) : (
           <>AI features are disabled. Paste an OpenRouter API key to enable them.</>
         )}

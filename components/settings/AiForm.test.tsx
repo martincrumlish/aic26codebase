@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-let status: { enabled: boolean; source?: "own" | "app"; last4?: string } | undefined;
+let status: { enabled: boolean; source?: "own" | "app"; last4?: string; appKeyNeedsPro?: boolean } | undefined;
 const setOpenRouterKey = vi.fn(() => Promise.resolve({ last4: "abcd" }));
 const clearOpenRouterKey = vi.fn(() => Promise.resolve(null));
 vi.mock("convex/react", async (orig) => ({
@@ -46,6 +46,13 @@ describe("AiForm", () => {
     ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /remove/i }));
     expect(clearOpenRouterKey).toHaveBeenCalledWith({});
+  });
+
+  test("on Free, explains the built-in AI comes with Pro and links to pricing", () => {
+    status = { enabled: false, appKeyNeedsPro: true };
+    render(<AiForm />);
+    expect(screen.getByText(/built-in ai is included with pro/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /upgrade/i })).toHaveAttribute("href", "/pricing");
   });
 
   test("shows the app-provided key status without a Remove button", () => {

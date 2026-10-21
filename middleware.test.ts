@@ -26,6 +26,7 @@ const isProtectedRoute = createRouteMatcher([
   "/admin(.*)",
   "/settings(.*)",
   "/projects(.*)",
+  "/chat(.*)",
 ]);
 const isPublicRoute = createRouteMatcher([
   "/signin(.*)",
@@ -50,6 +51,8 @@ describe("middleware route classification", () => {
       "/settings",
       "/projects",
       "/projects/abc",
+      "/chat",
+      "/chat/abc",
     ]) {
       expect(isProtectedRoute(req(p))).toBeTruthy();
     }

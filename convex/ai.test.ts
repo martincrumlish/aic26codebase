@@ -1,18 +1,33 @@
 // convex/ai.test.ts — BYOK OpenRouter key management.
-import { convexTest } from "convex-test";
+import { convexTest as baseConvexTest, type TestConvex } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
+import { makePro, registerStripe, stubStripeApi, stubStripeEnv } from "../vitest/stripe";
 
 const modules = import.meta.glob("./**/*.ts");
 
-function makeUser(t: ReturnType<typeof convexTest>) {
+function convexTest(s: typeof schema, m: typeof modules) {
+  const t = baseConvexTest(s, m);
+  registerStripe(t);
+  return t;
+}
+
+function makeUser(t: TestConvex<typeof schema>) {
   return t.run((ctx) =>
     ctx.db.insert("users", {
       email: "c@x.com", role: "user", status: "active",
       createdVia: "token", createdAt: Date.now(),
     }),
   );
+}
+
+/** Pro via a real (faked) Stripe webhook; then fetch goes back to OpenRouter stubs. */
+async function upgrade(t: TestConvex<typeof schema>, userId: Parameters<typeof makePro>[1]) {
+  stubStripeEnv();
+  stubStripeApi();
+  await makePro(t, userId);
+  vi.unstubAllGlobals();
 }
 
 /** Stub fetch so setOpenRouterKey's live validation hits our fake OpenRouter. */
@@ -101,13 +116,23 @@ describe("ai.getAiStatus", () => {
     expect(status).toEqual({ enabled: true, source: "own", last4: "abcd" });
   });
 
-  test("falls back to the app-level OPENROUTER_API_KEY env", async () => {
+  test("Pro users fall back to the app-level OPENROUTER_API_KEY env", async () => {
+    const t = convexTest(schema, modules);
+    const id = await makeUser(t);
+    await upgrade(t, id);
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-app-key");
+
+    const status = await t.withIdentity({ subject: id }).query(api.ai.getAiStatus, {});
+    expect(status).toEqual({ enabled: true, source: "app" });
+  });
+
+  test("Free users don't get the app key (PLANS.free.limits.appAiKey), and are told Pro would", async () => {
     const t = convexTest(schema, modules);
     const id = await makeUser(t);
     vi.stubEnv("OPENROUTER_API_KEY", "sk-or-app-key");
 
     const status = await t.withIdentity({ subject: id }).query(api.ai.getAiStatus, {});
-    expect(status).toEqual({ enabled: true, source: "app" });
+    expect(status).toEqual({ enabled: false, appKeyNeedsPro: true });
   });
 
   test("is disabled when neither a user key nor the env key exists", async () => {
@@ -138,10 +163,9 @@ describe("ai.clearOpenRouterKey", () => {
 });
 
 describe("ai.getOpenRouterKeyForUser (internal)", () => {
-  test("resolves user key → env key → null", async () => {
+  test("resolves user key → env key (Pro only) → null", async () => {
     const t = convexTest(schema, modules);
     const id = await makeUser(t);
-    stubOpenRouter(true);
 
     vi.stubEnv("OPENROUTER_API_KEY", "");
     expect(
@@ -151,8 +175,14 @@ describe("ai.getOpenRouterKeyForUser (internal)", () => {
     vi.stubEnv("OPENROUTER_API_KEY", "sk-or-app-key");
     expect(
       await t.query(internal.ai.getOpenRouterKeyForUser, { userId: id }),
+    ).toBeNull(); // Free plan
+
+    await upgrade(t, id);
+    expect(
+      await t.query(internal.ai.getOpenRouterKeyForUser, { userId: id }),
     ).toBe("sk-or-app-key");
 
+    stubOpenRouter(true);
     await t.withIdentity({ subject: id }).action(api.ai.setOpenRouterKey, {
       key: "sk-or-v1-user-abcd",
     });

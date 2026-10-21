@@ -4,12 +4,14 @@
 // ever comes back out through the INTERNAL getOpenRouterKeyForUser. Public
 // reads (getAiStatus) expose last4 only.
 //
-// Key resolution order: user's own key → OPENROUTER_API_KEY env → disabled.
+// Key resolution order: user's own key → OPENROUTER_API_KEY env (if their plan
+// includes it; Pro by default) → disabled. See lib/aiKey.ts.
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireUser, requireUserId } from "./access";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { resolveOpenRouterKey } from "./lib/aiKey";
 
 // setOpenRouterKey is an ACTION because it validates the key with a live
 // request to OpenRouter before saving (fetch is not available in mutations).
@@ -70,16 +72,17 @@ export const getAiStatus = query({
     enabled: v.boolean(),
     source: v.optional(v.union(v.literal("own"), v.literal("app"))),
     last4: v.optional(v.string()),
+    // True when the app has a key but the user's plan doesn't include it.
+    appKeyNeedsPro: v.optional(v.boolean()),
   }),
   handler: async (ctx) => {
     const user = await requireUser(ctx);
-    const row = await ctx.db
-      .query("userApiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .unique();
-    if (row) return { enabled: true, source: "own" as const, last4: row.last4 };
-    if (process.env.OPENROUTER_API_KEY) return { enabled: true, source: "app" as const };
-    return { enabled: false };
+    const resolved = await resolveOpenRouterKey(ctx, user._id);
+    if (resolved.key === null) {
+      return resolved.appKeyNeedsPro ? { enabled: false, appKeyNeedsPro: true } : { enabled: false };
+    }
+    if (resolved.source === "own") return { enabled: true, source: "own" as const, last4: resolved.last4 };
+    return { enabled: true, source: "app" as const };
   },
 });
 
@@ -102,11 +105,6 @@ export const getOpenRouterKeyForUser = internalQuery({
   args: { userId: v.id("users") },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
-    const row = await ctx.db
-      .query("userApiKeys")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .unique();
-    if (row) return row.key;
-    return process.env.OPENROUTER_API_KEY || null;
+    return (await resolveOpenRouterKey(ctx, args.userId)).key;
   },
 });

@@ -103,6 +103,22 @@ export async function sendStripeEvent(t: TestConvex<any>, type: string, object: 
   });
 }
 
+/**
+ * Put a user on Pro the way production does: link a Stripe customer and send
+ * the webhook for an active subscription. Needs registerStripe, stubStripeEnv
+ * and stubStripeApi first.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function makePro(t: TestConvex<any>, userId: string, customer = `cus_${userId.slice(-6)}`) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await t.run((ctx: any) => ctx.db.insert("billingAccounts", { userId, stripeCustomerId: customer }));
+  await sendStripeEvent(
+    t,
+    "customer.subscription.created",
+    subscriptionObject({ id: `sub_${customer}`, customer }),
+  );
+}
+
 /** A subscription object as Stripe sends it in customer.subscription.* events. */
 export function subscriptionObject(opts: {
   id: string;

@@ -81,6 +81,28 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_owner", ["ownerId"]),
 
+  // AI chat (see convex/chat.ts). One row per conversation; `updatedAt` moves
+  // with every message so the list can sort by recent activity.
+  conversations: defineTable({
+    ownerId: v.id("users"),
+    title: v.string(),
+    model: v.string(), // an OpenRouter model id from lib/aiModels.ts
+    updatedAt: v.number(),
+  }).index("by_owner_updated", ["ownerId", "updatedAt"]),
+
+  // An assistant reply is written while it streams: `content` grows and
+  // `status` goes "streaming" → "done" (or "error" with a message).
+  chatMessages: defineTable({
+    conversationId: v.id("conversations"),
+    ownerId: v.id("users"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    status: v.union(v.literal("streaming"), v.literal("done"), v.literal("error")),
+    error: v.optional(v.string()),
+  })
+    .index("by_conversation", ["conversationId"])
+    .index("by_owner", ["ownerId"]),
+
   webhooks: defineTable({
     scope: v.string(),
     signingSecretRef: v.string(), // env-var NAME, never the secret value

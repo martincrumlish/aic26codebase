@@ -11,6 +11,7 @@ const isProtectedRoute = createRouteMatcher([
   "/admin(.*)",
   "/settings(.*)",
   "/projects(.*)",
+  "/chat(.*)",
 ]);
 
 // Public (no auth required).

@@ -37,6 +37,7 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 - Public landing page: `components/landing/Landing.tsx`
 - Main signed-in screen (placeholder): `app/(app)/dashboard/page.tsx`
 - Example feature to copy: `convex/projects.ts` + `components/projects/` + `app/(app)/projects/`
+- AI chat: `convex/chat.ts` (system prompt at the top) + `components/chat/`; offered models: `convex/lib/aiModels.ts`; which key pays: `convex/lib/aiKey.ts`. Any new AI feature should get its key from `resolveOpenRouterKey` and only allow models from `aiModels.ts`.
 - Plans and limits: `convex/lib/plans.ts` (prices in `convex/lib/proPrice.json`); plan lookup: `convex/lib/plan.ts`; billing backend: `convex/billing.ts`
 - Sidebar nav items: `NAV` in `components/app-shell/AppShell.tsx`; route protection: `middleware.ts`
 - Schema: `convex/schema.ts`; access helpers: `convex/access.ts`; admin backend: `convex/admin.ts`

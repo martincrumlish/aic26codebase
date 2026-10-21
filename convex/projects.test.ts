@@ -5,13 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import {
-  registerStripe,
-  sendStripeEvent,
-  stubStripeApi,
-  stubStripeEnv,
-  subscriptionObject,
-} from "../vitest/stripe";
+import { makePro, registerStripe, stubStripeApi, stubStripeEnv } from "../vitest/stripe";
 
 const modules = import.meta.glob("./**/*.ts");
 type T = TestConvex<typeof schema>;
@@ -26,11 +20,6 @@ async function makeUser(t: T, email: string, role: "admin" | "user" = "user") {
   return t.run((ctx) =>
     ctx.db.insert("users", { email, role, status: "active", createdVia: "seed", createdAt: Date.now() }),
   );
-}
-
-async function makePro(t: T, userId: Id<"users">) {
-  await t.run((ctx) => ctx.db.insert("billingAccounts", { userId, stripeCustomerId: "cus_p" }));
-  await sendStripeEvent(t, "customer.subscription.created", subscriptionObject({ id: "sub_p", customer: "cus_p" }));
 }
 
 const page = { numItems: 20, cursor: null };

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "convex/react";
-import { FolderIcon, LayoutDashboardIcon, MenuIcon, ShieldIcon } from "lucide-react";
+import { FolderIcon, LayoutDashboardIcon, MenuIcon, MessageSquareIcon, ShieldIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { AccountMenu } from "@/components/app-shell/AccountMenu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -20,6 +20,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", Icon: LayoutDashboardIcon },
   { href: "/projects", label: "Projects", Icon: FolderIcon },
+  { href: "/chat", label: "AI chat", Icon: MessageSquareIcon },
   // Settings lives in the Account menu (bottom-left), not the main nav.
   { href: "/admin", label: "Admin", Icon: ShieldIcon, adminOnly: true },
 ];
