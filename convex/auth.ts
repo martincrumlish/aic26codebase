@@ -1,6 +1,5 @@
 // convex/auth.ts
 import { Password } from "@convex-dev/auth/providers/Password";
-import Resend from "@auth/core/providers/resend";
 import { convexAuth } from "@convex-dev/auth/server";
 import { DataModel } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
@@ -23,10 +22,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           token: (params.token as string) ?? undefined,
         };
       },
-    }),
-    // —— Magic-link via Resend. Default id "resend"; reads AUTH_RESEND_KEY. ——
-    Resend({
-      from: process.env.AUTH_EMAIL_FROM ?? "App <onboarding@resend.dev>",
     }),
   ],
   callbacks: {

@@ -52,8 +52,7 @@ export default async function createOrUpdateUser(
   }
 
   // 3. Token-on-profile signup path (Password.profile() passes `token` through).
-  //    Magic-link/email has no place to carry a token, so it cannot reach here
-  //    with one → un-provisioned magic-link emails are rejected at the final throw.
+  //    No token (or an invalid one) falls through to the final rejection.
   const tokenValue = (args.profile.token as string | undefined)?.trim();
   if (tokenValue) {
     const tok = await ctx.db
