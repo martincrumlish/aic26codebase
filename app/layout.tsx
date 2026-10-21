@@ -4,6 +4,7 @@ import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
 import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -16,10 +17,14 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <ConvexAuthNextjsServerProvider>
-      <html lang="en">
+      {/* suppressHydrationWarning: next-themes sets the theme class on <html>
+          before React hydrates, which would otherwise warn. */}
+      <html lang="en" suppressHydrationWarning>
         <body className="antialiased">
-          <ConvexClientProvider>{children}</ConvexClientProvider>
-          <Toaster richColors />
+          <ThemeProvider>
+            <ConvexClientProvider>{children}</ConvexClientProvider>
+            <Toaster richColors />
+          </ThemeProvider>
         </body>
       </html>
     </ConvexAuthNextjsServerProvider>

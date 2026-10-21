@@ -5,7 +5,7 @@ import { SecurityForm } from "@/components/settings/SecurityForm";
 
 export default function SettingsPage() {
   return (
-    <div className="mx-auto max-w-3xl px-8 py-7">
+    <div className="mx-auto max-w-3xl px-4 py-7 sm:px-8">
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { SettingsIcon, LogOutIcon, ChevronUpIcon } from "lucide-react";
+import { useTheme } from "next-themes";
+import { SettingsIcon, LogOutIcon, ChevronUpIcon, MoonIcon, SunIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -37,6 +38,8 @@ interface AccountMenuProps {
 export function AccountMenu({ email, name }: AccountMenuProps) {
   const { signOut } = useAuthActions();
   const router = useRouter();
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const displayName = name || email;
   const avatarLetters = initials(email);
@@ -92,6 +95,11 @@ export function AccountMenu({ email, name }: AccountMenuProps) {
         <DropdownMenuItem render={<Link href="/settings" />}>
           <SettingsIcon className="size-4" />
           Settings
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>
+          {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
+          {isDark ? "Light mode" : "Dark mode"}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />

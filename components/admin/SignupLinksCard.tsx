@@ -28,13 +28,14 @@ export function SignupLinksCard() {
       {links.map((link) => {
         const url = `${window.location.origin}/join/${link.token}`;
         return (
-          <li key={link._id} className="flex items-center gap-2">
-            <Input readOnly value={url} className="font-mono text-xs" />
-            <span className="shrink-0 text-xs text-muted-foreground">
+          <li key={link._id} className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+            <Input readOnly value={url} className="w-full font-mono text-xs sm:w-auto sm:flex-1" />
+            <span className="text-xs text-muted-foreground sm:shrink-0">
               {link.email ? `locked to ${link.email} · ` : ""}
               {link.usedCount} signup{link.usedCount === 1 ? "" : "s"}
             </span>
             <Button
+              className="ml-auto sm:ml-0"
               variant="outline"
               size="sm"
               onClick={() => {
