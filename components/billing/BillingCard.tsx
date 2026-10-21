@@ -1,4 +1,4 @@
-// components/billing/BillingCard.tsx — the Billing section of Settings.
+// components/billing/BillingCard.tsx — Settings > Billing.
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -19,7 +19,7 @@ export function BillingCard() {
   const params = useSearchParams();
   const [busy, setBusy] = useState(false);
 
-  // Stripe Checkout sends people back to /settings?billing=success.
+  // Stripe Checkout sends people back to /settings/billing?billing=success.
   useEffect(() => {
     if (params.get("billing") === "success") toast.success("Thanks for upgrading - welcome to Pro!");
   }, [params]);

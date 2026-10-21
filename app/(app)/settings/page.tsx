@@ -1,68 +1,14 @@
-// app/settings/page.tsx
-import { Suspense } from "react";
-import { BillingCard } from "@/components/billing/BillingCard";
-import { AiForm } from "@/components/settings/AiForm";
-import { GoogleConnect } from "@/components/settings/GoogleConnect";
-import { ProfileForm } from "@/components/settings/ProfileForm";
-import { SecurityForm } from "@/components/settings/SecurityForm";
+// app/(app)/settings/page.tsx — /settings opens the first section. Older
+// return links (?billing=..., ?connect=google) go to the section they belong to.
+import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-7 sm:px-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Manage your profile, plan, and account security.
-        </p>
-      </div>
-
-      <div className="space-y-10">
-        <section>
-          <h2 className="text-lg font-semibold">Profile</h2>
-          <p className="mb-4 mt-0.5 text-sm text-muted-foreground">
-            Your name and email.
-          </p>
-          <ProfileForm />
-        </section>
-
-        <hr className="border-border" />
-
-        <section>
-          <h2 className="text-lg font-semibold">Billing</h2>
-          <p className="mb-4 mt-0.5 text-sm text-muted-foreground">
-            Your plan and payments.
-          </p>
-          {/* Suspense: BillingCard reads the URL (?billing=success). */}
-          <Suspense fallback={null}>
-            <BillingCard />
-          </Suspense>
-        </section>
-
-        <hr className="border-border" />
-
-        <section>
-          <h2 className="text-lg font-semibold">Password</h2>
-          <p className="mb-4 mt-0.5 text-sm text-muted-foreground">
-            Change the password you use to sign in.
-          </p>
-          <SecurityForm />
-        </section>
-
-        <hr className="border-border" />
-
-        {/* Renders its own section (or nothing, if Google isn't set up). Suspense: reads ?connect=google. */}
-        <Suspense fallback={null}>
-          <GoogleConnect />
-        </Suspense>
-
-        <section>
-          <h2 className="text-lg font-semibold">AI</h2>
-          <p className="mb-4 mt-0.5 text-sm text-muted-foreground">
-            Bring your own OpenRouter key for AI features.
-          </p>
-          <AiForm />
-        </section>
-      </div>
-    </div>
-  );
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const params = await searchParams;
+  if (params.billing) redirect(`/settings/billing?billing=${encodeURIComponent(params.billing)}`);
+  if (params.connect) redirect(`/settings/security?connect=${encodeURIComponent(params.connect)}`);
+  redirect("/settings/profile");
 }

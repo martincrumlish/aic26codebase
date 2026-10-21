@@ -118,7 +118,7 @@ describe("ChatThread", () => {
   test("AI off on Free: explains, links to Settings and Pricing, and hides the composer", () => {
     aiStatus = { enabled: false, appKeyNeedsPro: true };
     render(<ChatThread />);
-    expect(screen.getByRole("link", { name: /add your key/i })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("link", { name: /add your key/i })).toHaveAttribute("href", "/settings/ai");
     expect(screen.getByRole("link", { name: /upgrade to pro/i })).toHaveAttribute("href", "/pricing");
     expect(screen.queryByLabelText(/message/i)).not.toBeInTheDocument();
   });

@@ -50,9 +50,9 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **App shell** | Sidebar on desktop; a top bar with a slide-out menu on phones; account menu with settings, dark/light mode, and sign-out |
 | **Projects example** (`/projects`) | A complete worked feature to copy: paginated list, detail page, edit, file upload to Convex storage, delete, owner checks, and a Free-plan limit (3 projects) with an upgrade prompt |
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
-| **Settings** | Profile, billing, password change, AI key management |
+| **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 257 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 258 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -371,7 +371,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (257 tests)
+npm run test:run       # everything (258 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -406,7 +406,7 @@ app/
     chat/              #   AI chat (new chat + [id] conversation)
     dashboard/         #   <- replace with your product
     projects/          #   the example feature (list + [id] detail)
-    settings/          #   profile / password / billing / AI key
+    settings/          #   one page per tab: profile, billing, security, ai
   activate/[token]/    # activation (accounts created for someone)
   join/[token]/        # signup via link
   signup/  signin/  reset/  # sign-up, sign-in, password reset

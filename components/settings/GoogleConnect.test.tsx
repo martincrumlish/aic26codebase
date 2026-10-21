@@ -33,7 +33,7 @@ describe("GoogleConnect", () => {
   test("not connected: Connect starts Google sign-in and comes back to Settings", async () => {
     render(<GoogleConnect />);
     await userEvent.click(screen.getByRole("button", { name: /connect google/i }));
-    expect(signIn).toHaveBeenCalledWith("google", { redirectTo: "/settings?connect=google" });
+    expect(signIn).toHaveBeenCalledWith("google", { redirectTo: "/settings/security?connect=google" });
   });
 
   test("connected: shows the address, and Disconnect removes it", async () => {
@@ -49,7 +49,7 @@ describe("GoogleConnect", () => {
     status = { enabled: true, connected: true, email: "amy@gmail.com" };
     const { unmount } = render(<GoogleConnect />);
     expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/google connected/i));
-    expect(replace).toHaveBeenCalledWith("/settings");
+    expect(replace).toHaveBeenCalledWith("/settings/security");
     unmount();
 
     status = { enabled: true, connected: false };

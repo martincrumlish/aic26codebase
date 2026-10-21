@@ -214,7 +214,7 @@ export function ChatThread({
                 <p>AI chat isn&apos;t set up yet. Add your own OpenRouter key to start.</p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link href="/settings" className={buttonVariants({ size: "sm", variant: "outline" })}>
+                <Link href="/settings/ai" className={buttonVariants({ size: "sm", variant: "outline" })}>
                   Add your key
                 </Link>
                 {aiStatus.appKeyNeedsPro && (

@@ -96,7 +96,7 @@ export const checkout = action({
       priceId: proPriceId(args.interval),
       customerId,
       mode: "subscription",
-      successUrl: `${siteUrl()}/settings?billing=success`,
+      successUrl: `${siteUrl()}/settings/billing?billing=success`,
       cancelUrl: `${siteUrl()}/pricing`,
       metadata: { userId: me.userId },
       subscriptionMetadata: { userId: me.userId },
@@ -117,7 +117,7 @@ export const portal = action({
     }
     return await stripe.createCustomerPortalSession(ctx, {
       customerId: me.stripeCustomerId,
-      returnUrl: `${siteUrl()}/settings`,
+      returnUrl: `${siteUrl()}/settings/billing`,
     });
   },
 });

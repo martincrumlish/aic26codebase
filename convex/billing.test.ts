@@ -108,7 +108,8 @@ describe("checkout (signed in)", () => {
     expect(session.params.get("mode")).toBe("subscription");
     expect(session.params.get("line_items[0][price]")).toBe(STRIPE_ENV.STRIPE_PRICE_PRO_YEARLY);
     expect(session.params.get("subscription_data[metadata][userId]")).toBe(userId);
-    expect(session.params.get("success_url")).toContain("/settings");
+    // Back to the Billing tab, which thanks them.
+    expect(session.params.get("success_url")).toBe("http://localhost:3000/settings/billing?billing=success");
 
     const accounts = await t.run((ctx) =>
       ctx.db.query("billingAccounts").withIndex("by_user", (q) => q.eq("userId", userId)).collect(),
@@ -138,6 +139,7 @@ describe("customer portal", () => {
     expect(url).toBe("https://billing.stripe.test/portal");
     const call = calls.find((c) => c.path === "/v1/billing_portal/sessions")!;
     expect(call.params.get("customer")).toBe("cus_portal");
+    expect(call.params.get("return_url")).toBe("http://localhost:3000/settings/billing");
   });
 
   test("explains there's nothing to manage for someone who never paid", async () => {
