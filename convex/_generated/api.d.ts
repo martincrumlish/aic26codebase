@@ -15,6 +15,7 @@ import type * as auth from "../auth.js";
 import type * as authGate from "../authGate.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
+import type * as lib_authMessages from "../lib/authMessages.js";
 import type * as lib_resend from "../lib/resend.js";
 import type * as password from "../password.js";
 import type * as passwordReset from "../passwordReset.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   authGate: typeof authGate;
   email: typeof email;
   http: typeof http;
+  "lib/authMessages": typeof lib_authMessages;
   "lib/resend": typeof lib_resend;
   password: typeof password;
   passwordReset: typeof passwordReset;

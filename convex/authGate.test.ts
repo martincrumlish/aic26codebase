@@ -51,7 +51,7 @@ describe("authGate.createOrUpdateUser", () => {
     await t.run(async (ctx) => {
       await expect(
         createOrUpdateUser(ctx as any, args({ profile: { email: "ghost@x.com" } })), // eslint-disable-line @typescript-eslint/no-explicit-any
-      ).rejects.toThrow(/not enabled/i);
+      ).rejects.toThrow(/couldn't create an account/i);
       const row = await ctx.db
         .query("users")
         .withIndex("by_email", (q) => q.eq("email", "ghost@x.com"))
@@ -102,7 +102,7 @@ describe("authGate.createOrUpdateUser", () => {
       await t.run(async (ctx) => {
         await expect(
           createOrUpdateUser(ctx as any, args({ profile: { email, token } })), // eslint-disable-line @typescript-eslint/no-explicit-any
-        ).rejects.toThrow(/not enabled/i);
+        ).rejects.toThrow(/couldn't create an account/i);
       });
     }
   });

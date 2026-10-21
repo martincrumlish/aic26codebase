@@ -159,7 +159,7 @@ npx convex run seed:bootstrapAdmin                   # prints your activationTok
 The `users` table (in `convex/schema.ts`) carries two fields that control access:
 
 - **`role`: `"admin"` or `"user"`.** Admins see `/admin` and manage everyone. Everyone who signs up through a signup link or the payment webhook is a `user`. Admin rights are only ever granted by another admin (**Make admin** in the users table) or by the first-run seed.
-- **`status`: `"active"` or `"revoked"`.** Revoking locks the account out of every function immediately, without deleting anything; **Restore** undoes it.
+- **`status`: `"active"` or `"revoked"`.** Revoking signs the person out everywhere and refuses them new sign-ins (even with the right password), without deleting anything; **Restore** undoes it.
 
 To keep one admin from locking out another, an admin can't revoke, delete, or set the password of another admin until that admin's rights are removed, and nobody can change their own role.
 
@@ -171,7 +171,7 @@ There is **no anonymous open signup** - every account starts with a signup link,
 
 1. **Signup link (`/join/<token>`).** An admin generates one in `/admin` (optionally locked to one email address). The visitor picks an email and password; `authGate` only lets the signup through if the link is valid. Links are **standing by default - no expiry, no use limit** - so one link can be the signup URL for a whole plan (for example, behind your checkout's thank-you page). Rotate a link whenever you like: revoke it in the Signup links list and generate a fresh one. For a one-off or time-limited invite, `admin.createSignupLink` also accepts `maxUses` and `ttlDays`.
 2. **Activation (`/activate/<token>`).** For accounts that were created for someone (the first admin, or a webhook purchase). The person follows their activation link and sets a password. The link is the proof that the account is theirs: knowing the email alone is never enough to claim a pre-created account, and each link works once.
-3. **Sign-in (`/signin`).** Email + password.
+3. **Sign-in (`/signin`).** Email + password. A wrong password and an unknown email get the same "Invalid email or password" answer, and sign-up failures likewise all get one message, so neither form reveals which emails have accounts (see the wrapper in `convex/auth.ts`).
 4. **Password reset (`/reset`).** Needs email to be set up. The user enters their email, receives an 8-digit code (valid 15 minutes), and sets a new password. The page never reveals whether an email has an account. Without email configured, the page says so and tells the user to ask an admin, who can use **Set password** in the users table.
 
 `convex/authGate.ts` is wired into Convex Auth's `createOrUpdateUser` callback. Its rules, in order: existing accounts continue (revoked ones are rejected); a pre-created account is claimed only with its own activation token; a brand-new account needs a valid signup link; anything else **fails closed**.

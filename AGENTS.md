@@ -23,7 +23,7 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 6. **Secrets are write-only.** Never return raw keys or passwords from a public query; expose derived facts (`last4`, booleans) and read raw values through `internal*` functions.
 7. **Email goes through `internal.email.send`** (which uses `convex/lib/resend.ts`). It never throws; check `sent`. Don't call the Resend API anywhere else.
 8. **Use indexes.** Query with `.withIndex(...)`; no unbounded `.collect()` on tables that can grow.
-9. **Don't reveal which emails have accounts.** Sign-in and reset errors must look the same for unknown and known addresses.
+9. **Don't reveal which emails have accounts.** Sign-in, sign-up and reset failures must look the same for unknown and known addresses. Use the messages in `convex/lib/authMessages.ts`; the password-provider wrapper in `convex/auth.ts` maps the library's own errors onto them.
 10. **Never link a sign-up to an existing account by email alone.** `convex/authGate.ts` only lets someone claim a pre-created account with that account's own activation token. Any new way of pre-creating accounts must issue an activation token and present it the same way (see `admin.createUserAccount`).
 11. **No secrets in git.** `.env.local` is gitignored; secrets are Convex env vars (`npx convex env set`).
 12. **Verify UI changes in a real browser**, at desktop and phone width, before calling them done.

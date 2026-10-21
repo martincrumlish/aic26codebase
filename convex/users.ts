@@ -41,6 +41,20 @@ export const getUserById = internalQuery({
   },
 });
 
+/**
+ * Internal: a user's status, or null if the row is gone. Used by the password
+ * provider wrapper in auth.ts to refuse sessions for revoked users.
+ */
+export const statusOf = internalQuery({
+  args: { userId: v.id("users") },
+  returns: v.union(v.literal("active"), v.literal("revoked"), v.null()),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) return null;
+    return user.status ?? "active";
+  },
+});
+
 export const updateProfile = mutation({
   args: { name: v.optional(v.string()) },
   returns: v.null(),

@@ -2,6 +2,7 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { REVOKED, SIGNUP_REJECTED } from "./lib/authMessages";
 
 type Ctx = MutationCtx;
 type Args = {
@@ -25,7 +26,7 @@ export default async function createOrUpdateUser(
       throw new ConvexError("This account no longer exists.");
     }
     if (u.status === "revoked") {
-      throw new ConvexError("This account has been revoked.");
+      throw new ConvexError(REVOKED);
     }
     return args.existingUserId;
   }
@@ -64,7 +65,7 @@ export default async function createOrUpdateUser(
       throw new ConvexError(NOT_ENABLED);
     }
     if (seeded.status === "revoked") {
-      throw new ConvexError("This account has been revoked.");
+      throw new ConvexError(REVOKED);
     }
     await ctx.db.patch(tok._id, { usedCount: tok.usedCount + 1 });
     await ctx.db.patch(seeded._id, {
@@ -98,8 +99,9 @@ export default async function createOrUpdateUser(
   throw new ConvexError(NOT_ENABLED);
 }
 
-const NOT_ENABLED =
-  "This email is not enabled for this app. Ask your administrator for an invite.";
+// Same message as an existing account gets (see auth.ts), so sign-up can't be
+// used to discover which emails have accounts.
+const NOT_ENABLED = SIGNUP_REJECTED;
 
 function isUsable(tok: Doc<"provisioningTokens">, now: number) {
   return (

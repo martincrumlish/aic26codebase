@@ -1,5 +1,12 @@
 // convex/admin.ts — admin console backend. Every function is admin-only.
-import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+} from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -74,6 +81,24 @@ async function requireManageableTarget(
   return target;
 }
 
+/** Sign a user out everywhere: delete their sessions and refresh tokens. */
+async function deleteSessions(ctx: MutationCtx, userId: Id<"users">) {
+  const sessions = await ctx.db
+    .query("authSessions")
+    .withIndex("userId", (q) => q.eq("userId", userId))
+    .collect();
+  for (const session of sessions) {
+    const refreshTokens = await ctx.db
+      .query("authRefreshTokens")
+      .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+      .collect();
+    await Promise.all(refreshTokens.map((rt) => ctx.db.delete(rt._id)));
+    await ctx.db.delete(session._id);
+  }
+}
+
+// Revoking also signs the user out everywhere, and the password provider
+// wrapper in auth.ts refuses them new sessions until they're restored.
 export const revokeUser = mutation({
   args: { userId: v.id("users") },
   returns: v.null(),
@@ -81,6 +106,7 @@ export const revokeUser = mutation({
     const admin = await requireAdmin(ctx);
     await requireManageableTarget(ctx, admin._id, args.userId, "revoke");
     await ctx.db.patch(args.userId, { status: "revoked" });
+    await deleteSessions(ctx, args.userId);
     return null;
   },
 });
@@ -470,20 +496,8 @@ export const deleteUserAccount = mutation({
       await ctx.db.delete(account._id);
     }
 
-    // authSessions: "userId" index. Each session's refresh tokens go too.
-    const sessions = await ctx.db
-      .query("authSessions")
-      .withIndex("userId", (q) => q.eq("userId", userId))
-      .collect();
-    for (const session of sessions) {
-      // authRefreshTokens: "sessionId" index, keyed by sessionId.
-      const refreshTokens = await ctx.db
-        .query("authRefreshTokens")
-        .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
-        .collect();
-      await Promise.all(refreshTokens.map((rt) => ctx.db.delete(rt._id)));
-      await ctx.db.delete(session._id);
-    }
+    // authSessions (and each session's refresh tokens).
+    await deleteSessions(ctx, userId);
     // authVerifiers (PKCE/OAuth) only carry an optional sessionId and have no
     // by-session index — a full scan would be a table-scan violation, and a
     // verifier with no live session is inert. We deleted the sessions above, so

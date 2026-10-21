@@ -44,7 +44,7 @@ describe("claiming a pre-created account requires its activation link", () => {
     await t.mutation(internal.seed.bootstrapAdmin, {});
 
     await expect(signUp(t, "owner@example.com", "attacker-pass-123")).rejects.toThrow(
-      /not enabled/i,
+      /couldn't create an account/i,
     );
     expect(await passwordAccounts(t, "owner@example.com")).toHaveLength(0);
   });
@@ -61,7 +61,7 @@ describe("claiming a pre-created account requires its activation link", () => {
 
     await expect(
       signUp(t, "owner@example.com", "attacker-pass-123", "public-signup-link"),
-    ).rejects.toThrow(/not enabled/i);
+    ).rejects.toThrow(/couldn't create an account/i);
     expect(await passwordAccounts(t, "owner@example.com")).toHaveLength(0);
   });
 
@@ -75,7 +75,7 @@ describe("claiming a pre-created account requires its activation link", () => {
     const alicesLink = await activationTokenFor(t, "alice@x.com");
 
     await expect(signUp(t, "bob@x.com", "attacker-pass-123", alicesLink)).rejects.toThrow(
-      /not enabled/i,
+      /couldn't create an account/i,
     );
     expect(await passwordAccounts(t, "bob@x.com")).toHaveLength(0);
   });
