@@ -12,6 +12,7 @@ import { internal } from "./_generated/api";
 import { requireUser, requireUserId } from "./access";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { resolveOpenRouterKey } from "./lib/aiKey";
+import { messagesThisMonth, periodEnd } from "./lib/aiUsage";
 
 // setOpenRouterKey is an ACTION because it validates the key with a live
 // request to OpenRouter before saving (fetch is not available in mutations).
@@ -83,6 +84,34 @@ export const getAiStatus = query({
     }
     if (resolved.source === "own") return { enabled: true, source: "own" as const, last4: resolved.last4 };
     return { enabled: true, source: "app" as const };
+  },
+});
+
+/**
+ * This month's AI messages on the app's key and the plan's allowance.
+ * limit is null when there's no allowance to show: on your own key (never
+ * limited) or with no AI at all.
+ */
+export const usage = query({
+  args: {},
+  returns: v.object({
+    source: v.union(v.literal("own"), v.literal("app"), v.null()),
+    used: v.number(),
+    limit: v.union(v.number(), v.null()),
+    resetsAt: v.union(v.number(), v.null()),
+  }),
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    const resolved = await resolveOpenRouterKey(ctx, user._id);
+    if (resolved.key === null) return { source: null, used: 0, limit: null, resetsAt: null };
+    if (resolved.source === "own") return { source: "own" as const, used: 0, limit: null, resetsAt: null };
+    const now = Date.now();
+    return {
+      source: "app" as const,
+      used: await messagesThisMonth(ctx, user._id, now),
+      limit: resolved.monthlyLimit,
+      resetsAt: periodEnd(now),
+    };
   },
 });
 

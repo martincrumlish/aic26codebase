@@ -13,8 +13,42 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SettingsSection } from "./SettingsSection";
 
+const formatDay = (ms: number) =>
+  new Date(ms).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+
+/** This month's messages on the app's key against the plan's allowance. */
+function UsageMeter({ used, limit, resetsAt }: { used: number; limit: number; resetsAt: number | null }) {
+  const full = used >= limit;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
+        <span className={full ? "font-medium text-destructive" : "font-medium"}>
+          {used.toLocaleString("en-US")} of {limit.toLocaleString("en-US")} AI messages used this month
+        </span>
+        {resetsAt && <span className="text-xs text-muted-foreground">Resets {formatDay(resetsAt)}</span>}
+      </div>
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-label="AI messages used"
+        aria-valuenow={used}
+        aria-valuemax={limit}
+      >
+        <div
+          className={full ? "h-full rounded-full bg-destructive" : "h-full rounded-full bg-primary"}
+          style={{ width: `${Math.min(100, (used / Math.max(1, limit)) * 100)}%` }}
+        />
+      </div>
+      {full && (
+        <p className="text-xs text-muted-foreground">Add your own key below to keep chatting before then.</p>
+      )}
+    </div>
+  );
+}
+
 export function AiForm() {
   const status = useQuery(api.ai.getAiStatus);
+  const usage = useQuery(api.ai.usage, {});
   const setKey = useAction(api.ai.setOpenRouterKey);
   const clearKey = useMutation(api.ai.clearOpenRouterKey);
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +140,8 @@ export function AiForm() {
           )}
         </p>
       </div>
+
+      {usage?.limit != null && <UsageMeter used={usage.used} limit={usage.limit} resetsAt={usage.resetsAt} />}
 
       <div className="max-w-md space-y-2">
         <Label htmlFor="ai-key">{status.source === "own" ? "Replace your key" : "OpenRouter API key"}</Label>

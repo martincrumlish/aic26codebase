@@ -60,13 +60,16 @@ describe("Overview", () => {
     expect(screen.getByRole("link", { name: /launch email ideas/i })).toHaveAttribute("href", "/chat/c1");
   });
 
-  test("Pro with the app's key: no upgrade prompt, AI ready", () => {
+  test("Pro with the app's key: no upgrade prompt, AI ready, with this month's usage", () => {
     data["billing:status"] = { plan: "pro", billingEnabled: true };
     data["projects:usage"] = { count: 7, limit: null, plan: "pro" };
     data["ai:getAiStatus"] = { enabled: true, source: "app" };
+    data["ai:usage"] = { source: "app", used: 230, limit: 1000, resetsAt: 1 };
     render(<Overview />);
     expect(screen.queryByRole("link", { name: /upgrade/i })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: /ai chat/i })).getByText(/ready/i)).toBeInTheDocument();
+    const ai = screen.getByRole("region", { name: /ai chat/i });
+    expect(within(ai).getByText(/ready/i)).toBeInTheDocument();
+    expect(within(ai).getByText(/230 of 1,000 messages this month/i)).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: /^projects$/i })).getByText("7")).toBeInTheDocument();
   });
 

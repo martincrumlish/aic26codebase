@@ -502,6 +502,13 @@ export const deleteUserAccount = mutation({
       .collect();
     await Promise.all(apiKeys.map((k) => ctx.db.delete(k._id)));
 
+    // AI allowance counters (one row per month used).
+    const usage = await ctx.db
+      .query("aiUsage")
+      .withIndex("by_user_period", (q) => q.eq("userId", userId))
+      .take(500);
+    await Promise.all(usage.map((u) => ctx.db.delete(u._id)));
+
     // AI chat: can be thousands of messages, so it's deleted in batches by a
     // scheduled function rather than all inside this mutation.
     await ctx.scheduler.runAfter(0, internal.chat.purge, { ownerId: userId });

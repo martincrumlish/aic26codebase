@@ -104,6 +104,14 @@ export default defineSchema({
     .index("by_conversation", ["conversationId"])
     .index("by_owner", ["ownerId"]),
 
+  // AI messages sent on the app's OpenRouter key, per user per calendar month
+  // (UTC, "2026-10"). See convex/lib/aiUsage.ts.
+  aiUsage: defineTable({
+    userId: v.id("users"),
+    period: v.string(),
+    messages: v.number(),
+  }).index("by_user_period", ["userId", "period"]),
+
   // Admin > Branding (see convex/branding.ts). At most one row; anything not
   // set falls back to the defaults in code (lib/brandTheme.ts).
   branding: defineTable({

@@ -53,7 +53,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 289 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 297 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -283,7 +283,7 @@ Email is optional. With `AUTH_RESEND_KEY` unset, the app works normally: the inv
 
 **Which key pays** (`convex/lib/aiKey.ts`):
 1. The user's own OpenRouter key, if they've added one in **Settings > AI**. They pay for their own usage, on any plan.
-2. Otherwise the app's key (`OPENROUTER_API_KEY`), **if their plan includes it** - Pro does, Free doesn't (`PLANS.<plan>.limits.appAiKey` in `convex/lib/plans.ts`). To give everyone AI on your account, set `appAiKey: true` on Free too.
+2. Otherwise the app's key (`OPENROUTER_API_KEY`), **if their plan includes it** - Pro does, Free doesn't (`PLANS.<plan>.limits.appAiKey` in `convex/lib/plans.ts`). To give everyone AI on your account, set `appAiKey: true` on Free too. Messages on the app's key count against a **monthly allowance** per plan (`appAiMessagesPerMonth`: 1,000 on Pro, 25 on Free if you turn it on), so one heavy user can't run up your bill. It resets on the 1st of each month (UTC); usage shows in Settings > AI and on the dashboard, and at the limit people are told to add their own key or wait. Messages on a user's own key are never counted.
 3. Otherwise chat explains how to turn AI on (add a key, or upgrade to Pro).
 
 To try it: `npx convex env set OPENROUTER_API_KEY sk-or-v1-...` and upgrade your account to Pro, or paste your own key in Settings > AI.
@@ -298,7 +298,7 @@ To try it: `npx convex env set OPENROUTER_API_KEY sk-or-v1-...` and upgrade your
 
 **Key storage:** the raw key lives in the `userApiKeys` table and is only read on the server (`lib/aiKey.ts`, `internal.ai.getOpenRouterKeyForUser`). The public `getAiStatus` returns `{enabled, source: "own" | "app", last4, appKeyNeedsPro}` and nothing more. Keys are checked with a live call to OpenRouter's authenticated `/api/v1/key` endpoint before saving (`/api/v1/models` is public and can't validate keys - don't "simplify" this).
 
-Deleting a conversation, or a user, removes the messages in scheduled batches, since a long chat can have thousands. There's no per-user usage cap on the app key: if Pro users get it, watch your OpenRouter spend, or add a cap in `send`.
+Deleting a conversation, or a user, removes the messages in scheduled batches, since a long chat can have thousands. The allowance counts messages, not tokens: a message to an expensive model costs you more than one to a cheap one, so set `appAiMessagesPerMonth` with your most expensive offered model in mind (or trim `lib/aiModels.ts`).
 
 ---
 
@@ -401,7 +401,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (289 tests)
+npm run test:run       # everything (297 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode

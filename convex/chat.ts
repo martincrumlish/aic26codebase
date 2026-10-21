@@ -25,6 +25,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireUser } from "./access";
 import { resolveOpenRouterKey } from "./lib/aiKey";
+import { countAppMessage } from "./lib/aiUsage";
 import { isAllowedModel } from "./lib/aiModels";
 
 // Change this to give the assistant your product's voice and knowledge.
@@ -162,6 +163,9 @@ export const send = mutation({
     if (!isAllowedModel(args.model)) throw new ConvexError("That model isn't available.");
     const resolved = await resolveOpenRouterKey(ctx, user._id);
     if (resolved.key === null) throw new ConvexError(noKeyMessage(resolved.appKeyNeedsPro));
+    // On the app's key, count it against the plan's monthly allowance. (If
+    // anything below throws, the mutation is rolled back, count included.)
+    if (resolved.source === "app") await countAppMessage(ctx, user._id, resolved.monthlyLimit);
 
     const now = Date.now();
     let conversationId = args.conversationId;

@@ -15,14 +15,18 @@ export const PLANS = {
     name: "Free",
     description: "Everything you need to try it out.",
     features: ["Up to 3 projects", "AI chat with your own OpenRouter key"],
-    limits: { projects: 3, appAiKey: false },
+    // appAiKey: may this plan use the app's OPENROUTER_API_KEY? (Free: no, so
+    // the allowance below only matters if you turn it on.)
+    // appAiMessagesPerMonth: messages a month on the app's key. Messages on a
+    // user's own key are never limited.
+    limits: { projects: 3, appAiKey: false, appAiMessagesPerMonth: 25 },
   },
   pro: {
     id: "pro",
     name: "Pro",
     description: "For people who use it every day.",
-    features: ["Unlimited projects", "AI chat included (no key needed)", "Priority support"],
-    limits: { projects: Infinity, appAiKey: true },
+    features: ["Unlimited projects", "1,000 AI messages a month included (no key needed)", "Priority support"],
+    limits: { projects: Infinity, appAiKey: true, appAiMessagesPerMonth: 1000 },
     // Amounts in the smallest currency unit (cents).
     price: proPrice,
   },

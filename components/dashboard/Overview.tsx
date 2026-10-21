@@ -51,6 +51,7 @@ export function Overview() {
   const billing = useQuery(api.billing.status, {});
   const usage = useQuery(api.projects.usage, {});
   const ai = useQuery(api.ai.getAiStatus, {});
+  const aiUsage = useQuery(api.ai.usage, {});
   const projects = usePaginatedQuery(api.projects.list, {}, { initialNumItems: 5 });
   const chats = usePaginatedQuery(api.chat.listConversations, {}, { initialNumItems: 5 });
 
@@ -114,7 +115,11 @@ export function Overview() {
           >
             {ai?.enabled ? (
               <p className="text-sm text-muted-foreground">
-                {ai.source === "own" ? "Using your OpenRouter key." : "Using the app's built-in key."}
+                {ai.source === "own"
+                  ? "Using your OpenRouter key."
+                  : aiUsage?.limit != null
+                    ? `${aiUsage.used.toLocaleString("en-US")} of ${aiUsage.limit.toLocaleString("en-US")} messages this month.`
+                    : "Using the app's built-in key."}
               </p>
             ) : ai ? (
               <Link href="/settings/ai" className={linkClass}>Add your key</Link>

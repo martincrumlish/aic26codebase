@@ -21,6 +21,7 @@ import type * as google from "../google.js";
 import type * as http from "../http.js";
 import type * as lib_aiKey from "../lib/aiKey.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
+import type * as lib_aiUsage from "../lib/aiUsage.js";
 import type * as lib_authMessages from "../lib/authMessages.js";
 import type * as lib_emailCode from "../lib/emailCode.js";
 import type * as lib_googleConnect from "../lib/googleConnect.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/aiKey": typeof lib_aiKey;
   "lib/aiModels": typeof lib_aiModels;
+  "lib/aiUsage": typeof lib_aiUsage;
   "lib/authMessages": typeof lib_authMessages;
   "lib/emailCode": typeof lib_emailCode;
   "lib/googleConnect": typeof lib_googleConnect;

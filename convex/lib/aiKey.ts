@@ -15,7 +15,8 @@ import { PLANS } from "./plans";
 
 export type ResolvedKey =
   | { key: string; source: "own"; last4: string }
-  | { key: string; source: "app" }
+  /** monthlyLimit: messages a month on the app's key (see lib/aiUsage.ts). */
+  | { key: string; source: "app"; monthlyLimit: number }
   | { key: null; appKeyNeedsPro: boolean };
 
 export async function resolveOpenRouterKey(
@@ -31,6 +32,7 @@ export async function resolveOpenRouterKey(
   const appKey = process.env.OPENROUTER_API_KEY;
   if (!appKey) return { key: null, appKeyNeedsPro: false };
   const plan = await getPlan(ctx, userId);
-  if (PLANS[plan].limits.appAiKey) return { key: appKey, source: "app" };
+  const { appAiKey, appAiMessagesPerMonth } = PLANS[plan].limits;
+  if (appAiKey) return { key: appKey, source: "app", monthlyLimit: appAiMessagesPerMonth };
   return { key: null, appKeyNeedsPro: PLANS.pro.limits.appAiKey };
 }
