@@ -6,8 +6,12 @@ import { useSearchParams } from "next/navigation";
 import { useAction, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { toast } from "sonner";
+import { CheckIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { PLANS, formatPrice } from "@/convex/lib/plans";
+import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { SettingsSection } from "@/components/settings/SettingsSection";
 import { goTo } from "@/lib/navigate";
 
 const formatDate = (ms: number) =>
@@ -24,7 +28,7 @@ export function BillingCard() {
     if (params.get("billing") === "success") toast.success("Thanks for upgrading - welcome to Pro!");
   }, [params]);
 
-  if (status === undefined) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (status === undefined) return <SettingsSection title="Plan" description="Loading…" />;
 
   async function openPortal() {
     setBusy(true);
@@ -36,44 +40,79 @@ export function BillingCard() {
     }
   }
 
-  if (status.plan === "pro") {
-    return (
-      <div className="max-w-sm space-y-4">
-        <p className="text-sm">
-          You&apos;re on the <strong>Pro plan{status.interval ? `, billed ${status.interval}` : ""}</strong>.
-        </p>
-        {status.renewsAt && (
-          <p className="text-sm text-muted-foreground">
-            {status.cancelAtPeriodEnd ? "Your access ends on " : "Renews on "}
-            {formatDate(status.renewsAt)}.
-          </p>
-        )}
-        <Button variant="outline" disabled={busy} onClick={() => void openPortal()}>
-          Manage billing
-        </Button>
-      </div>
-    );
-  }
+  const plan = PLANS[status.plan];
+  const price =
+    status.plan === "pro" && status.interval
+      ? `${formatPrice(PLANS.pro.price[status.interval], PLANS.pro.price.currency)} / ${status.interval === "yearly" ? "year" : "month"}`
+      : status.plan === "free"
+        ? `${formatPrice(0, PLANS.pro.price.currency)} / month`
+        : null;
 
   return (
-    <div className="max-w-sm space-y-4">
-      <p className="text-sm">
-        {status.billingEnabled
-          ? "You're on the Free plan."
-          : "You're on the Free plan. Paid plans aren't set up yet."}
-      </p>
-      {status.billingEnabled && (
-        <div className="flex flex-wrap gap-2">
-          <Link href="/pricing" className={buttonVariants()}>
-            Upgrade to Pro
-          </Link>
-          {status.hasBillingAccount && (
-            <Button variant="outline" disabled={busy} onClick={() => void openPortal()}>
-              Billing history
-            </Button>
-          )}
+    <SettingsSection
+      title="Plan"
+      description="Your current plan and what it includes."
+      hint={
+        status.plan === "pro" && status.renewsAt ? (
+          <>
+            {status.cancelAtPeriodEnd ? "Your access ends on " : "Renews on "}
+            {formatDate(status.renewsAt)}.
+          </>
+        ) : status.plan === "free" && status.billingEnabled ? (
+          "Upgrade any time. You can cancel whenever you like."
+        ) : null
+      }
+      footer={
+        status.plan === "pro" ? (
+          <Button variant="outline" disabled={busy} onClick={() => void openPortal()}>
+            Manage billing
+          </Button>
+        ) : status.billingEnabled ? (
+          <>
+            {status.hasBillingAccount && (
+              <Button variant="outline" disabled={busy} onClick={() => void openPortal()}>
+                Billing history
+              </Button>
+            )}
+            <Link href="/pricing" className={buttonVariants()}>
+              Upgrade to Pro
+            </Link>
+          </>
+        ) : null
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border bg-muted/30 p-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold">{plan.name}</span>
+            {status.plan === "pro" && (
+              <Badge variant={status.cancelAtPeriodEnd ? "outline" : "default"}>
+                {status.cancelAtPeriodEnd ? "Cancelling" : "Active"}
+              </Badge>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {status.plan === "pro" ? (
+              <>
+                You&apos;re on the <strong className="text-foreground">Pro plan{status.interval ? `, billed ${status.interval}` : ""}</strong>.
+              </>
+            ) : status.billingEnabled ? (
+              "You're on the Free plan."
+            ) : (
+              "You're on the Free plan. Paid plans aren't set up yet."
+            )}
+          </p>
         </div>
-      )}
-    </div>
+        {price && <span className="text-sm font-medium tabular-nums">{price}</span>}
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {plan.features.map((f) => (
+          <li key={f} className="flex items-center gap-2 text-sm">
+            <CheckIcon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            {f}
+          </li>
+        ))}
+      </ul>
+    </SettingsSection>
   );
 }

@@ -44,20 +44,22 @@ describe("ProjectsList", () => {
     expect(screen.getByText(/2 of 3 projects/i)).toBeInTheDocument();
   });
 
-  test("creating a project sends the name and description", async () => {
+  test("New project opens a form; creating sends the name and description", async () => {
     render(<ProjectsList />);
+    expect(screen.queryByLabelText(/^name/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /new project/i }));
     await userEvent.type(screen.getByLabelText(/^name/i), "Launch plan");
     await userEvent.type(screen.getByLabelText(/description/i), "Q3");
     await userEvent.click(screen.getByRole("button", { name: /create project/i }));
     expect(create).toHaveBeenCalledWith({ name: "Launch plan", description: "Q3" });
   });
 
-  test("at the Free limit: explains, links to pricing, and hides the create form", () => {
+  test("at the Free limit: explains, links to pricing, and offers no way to create", () => {
     usage = { count: 3, limit: 3, plan: "free" };
     render(<ProjectsList />);
     expect(screen.getByText(/used all 3 projects/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /upgrade/i })).toHaveAttribute("href", "/pricing");
-    expect(screen.queryByRole("button", { name: /create project/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new project/i })).not.toBeInTheDocument();
   });
 
   test("Pro shows no limit", () => {

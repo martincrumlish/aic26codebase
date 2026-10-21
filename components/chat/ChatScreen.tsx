@@ -28,7 +28,7 @@ export function ChatScreen({ conversationId }: { conversationId?: string }) {
 
   return (
     <div className="flex h-full">
-      <aside className="hidden w-64 shrink-0 border-r md:block">
+      <aside className="hidden w-64 shrink-0 border-r bg-card md:block">
         <ConversationList activeId={conversationId} />
       </aside>
       <div className="min-w-0 flex-1">

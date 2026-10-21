@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { SettingsSection } from "./SettingsSection";
 
 export function SecurityForm() {
   const changePassword = useAction(api.password.changePassword);
@@ -41,31 +42,40 @@ export function SecurityForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-sm space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="sec-current">Current password</Label>
-        <Input
-          id="sec-current"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
+    <SettingsSection
+      title="Password"
+      description="Change the password you use to sign in."
+      onSubmit={onSubmit}
+      hint="At least 8 characters."
+      footer={
+        <Button type="submit" disabled={submitting}>
+          Update password
+        </Button>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="sec-current">Current password</Label>
+          <Input
+            id="sec-current"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sec-new">New password</Label>
+          <Input
+            id="sec-new"
+            name="newPassword"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+        </div>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="sec-new">New password</Label>
-        <Input
-          id="sec-new"
-          name="newPassword"
-          type="password"
-          autoComplete="new-password"
-          minLength={8}
-          required
-        />
-      </div>
-      <Button type="submit" disabled={submitting}>
-        Update password
-      </Button>
-    </form>
+    </SettingsSection>
   );
 }

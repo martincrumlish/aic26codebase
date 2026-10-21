@@ -47,12 +47,12 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
 | **AI chat** (`/chat`) | Saved conversations with replies that stream in live, Markdown rendering, a model picker (Claude, GPT, Gemini, DeepSeek via OpenRouter), rename and delete |
 | **AI keys** | Users can bring their own OpenRouter key (verified before saving, stored write-only: the browser only ever sees the last 4 characters); Pro users can use the app's key instead |
-| **App shell** | Sidebar on desktop; a top bar with a slide-out menu on phones; account menu with settings, dark/light mode, and sign-out |
+| **App shell** | Sidebar on desktop; a top bar with a slide-out menu on phones; account menu with settings, dark/light mode, and sign-out. Every page uses the same frame (`components/app-shell/Page.tsx`): a header band with the title and main actions, then cards on a grey canvas. Geist type; colours are tokens in `app/globals.css` |
 | **Projects example** (`/projects`) | A complete worked feature to copy: paginated list, detail page, edit, file upload to Convex storage, delete, owner checks, and a Free-plan limit (3 projects) with an upgrade prompt |
-| **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
+| **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 258 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 264 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -371,7 +371,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (258 tests)
+npm run test:run       # everything (264 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode

@@ -16,9 +16,8 @@ export function SignupLinksCard() {
   }
   if (links.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No active signup links. Generate one with the button above — links stay
-        live until you revoke them.
+      <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+        No active signup links. Use Generate signup link at the top of the page to make one.
       </p>
     );
   }

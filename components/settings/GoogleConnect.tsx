@@ -11,6 +11,7 @@ import { ConvexError } from "convex/values";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { GoogleLogo } from "@/components/auth/GoogleButton";
 import { SettingsSection } from "./SettingsSection";
 
 export function GoogleConnect() {
@@ -49,30 +50,38 @@ export function GoogleConnect() {
   return (
     <SettingsSection
       title="Google"
-      description={
+      description="Sign in with your Google account instead of a password."
+      footer={
         status.connected ? (
-          <>Connected as <span className="font-medium text-foreground">{status.email}</span>. You can sign in with Google or your password.</>
+          <Button variant="outline" disabled={busy} onClick={() => void onDisconnect()}>
+            Disconnect
+          </Button>
         ) : (
-          <>Connect your Google account to sign in with one click.</>
+          <Button
+            variant="outline"
+            disabled={busy || !status.enabled}
+            onClick={() => {
+              setBusy(true);
+              void signIn("google", { redirectTo: "/settings/security?connect=google" }).catch(() => setBusy(false));
+            }}
+          >
+            Connect Google
+          </Button>
         )
       }
     >
-      {status.connected ? (
-        <Button variant="outline" disabled={busy} onClick={() => void onDisconnect()}>
-          Disconnect
-        </Button>
-      ) : (
-        <Button
-          variant="outline"
-          disabled={busy || !status.enabled}
-          onClick={() => {
-            setBusy(true);
-            void signIn("google", { redirectTo: "/settings/security?connect=google" }).catch(() => setBusy(false));
-          }}
-        >
-          Connect Google
-        </Button>
-      )}
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-card shadow-xs">
+          <GoogleLogo />
+        </span>
+        <p className="text-sm text-muted-foreground">
+          {status.connected ? (
+            <>Connected as <span className="font-medium text-foreground">{status.email}</span>. You can sign in with Google or your password.</>
+          ) : (
+            <>Not connected. Connect it to sign in with one click.</>
+          )}
+        </p>
+      </div>
     </SettingsSection>
   );
 }

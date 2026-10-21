@@ -27,37 +27,48 @@ import { UsersTable } from "./UsersTable";
 
 const row = (email: string) => within(screen.getByText(email).closest("tr")!);
 
+/** Open a row's actions menu and pick an item. */
+async function act(email: string, item: RegExp) {
+  await userEvent.click(screen.getByRole("button", { name: `Actions for ${email}` }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: item }));
+}
+
+async function menuItems(email: string) {
+  await userEvent.click(screen.getByRole("button", { name: `Actions for ${email}` }));
+  await screen.findAllByRole("menuitem");
+  return screen.getAllByRole("menuitem").map((m) => m.textContent);
+}
+
 beforeEach(() => Object.values(spies).forEach((s) => s.mockClear()));
 
 describe("UsersTable", () => {
-  test("your own row has no actions; other admins can only have admin rights removed", () => {
+  test("your own row has no actions; other admins can only have admin rights removed", async () => {
     render(<UsersTable currentUserId="me" />);
     expect(row("me@x.com").queryAllByRole("button")).toHaveLength(0);
     expect(row("me@x.com").getByText(/you/i)).toBeInTheDocument();
 
-    expect(row("other-admin@x.com").getByRole("button", { name: /remove admin/i })).toBeInTheDocument();
-    expect(row("other-admin@x.com").queryByRole("button", { name: /revoke|delete/i })).not.toBeInTheDocument();
+    expect(await menuItems("other-admin@x.com")).toEqual(["Remove admin"]);
   });
 
   test("make admin, remove admin, revoke and restore call the right mutations", async () => {
     render(<UsersTable currentUserId="me" />);
-    await userEvent.click(row("amy@x.com").getByRole("button", { name: /make admin/i }));
+    await act("amy@x.com", /make admin/i);
     expect(spies["admin:setUserRole"]).toHaveBeenCalledWith({ userId: "u1", role: "admin" });
 
-    await userEvent.click(row("other-admin@x.com").getByRole("button", { name: /remove admin/i }));
+    await act("other-admin@x.com", /remove admin/i);
     expect(spies["admin:setUserRole"]).toHaveBeenCalledWith({ userId: "a2", role: "user" });
 
-    await userEvent.click(row("amy@x.com").getByRole("button", { name: /revoke/i }));
+    await act("amy@x.com", /revoke/i);
     expect(spies["admin:revokeUser"]).toHaveBeenCalledWith({ userId: "u1" });
 
-    await userEvent.click(row("ben@x.com").getByRole("button", { name: /restore/i }));
+    await act("ben@x.com", /restore/i);
     expect(spies["admin:restoreUser"]).toHaveBeenCalledWith({ userId: "u2" });
   });
 
   test("set password opens a dialog and calls setUserPassword for that user", async () => {
     render(<UsersTable currentUserId="me" />);
     const user = userEvent.setup();
-    await user.click(row("amy@x.com").getByRole("button", { name: /set password/i }));
+    await act("amy@x.com", /set password/i);
     await user.type(screen.getByLabelText(/^new password$/i), "admin-chosen-pw");
     await user.click(screen.getByRole("button", { name: /^save password$/i }));
     expect(spies["admin:setUserPassword"]).toHaveBeenCalledWith({
@@ -66,17 +77,15 @@ describe("UsersTable", () => {
     });
   });
 
-  test("other admins have no set-password action", () => {
+  test("other admins have no set-password action", async () => {
     render(<UsersTable currentUserId="me" />);
-    expect(
-      row("other-admin@x.com").queryByRole("button", { name: /set password/i }),
-    ).not.toBeInTheDocument();
+    expect(await menuItems("other-admin@x.com")).not.toContain("Set password");
   });
 
   test("delete is gated by typing the email, then calls deleteUserAccount", async () => {
     render(<UsersTable currentUserId="me" />);
     const user = userEvent.setup();
-    await user.click(row("amy@x.com").getByRole("button", { name: /^delete$/i }));
+    await act("amy@x.com", /delete account/i);
     const confirmBtn = screen.getByRole("button", { name: /delete forever/i });
     expect(confirmBtn).toBeDisabled();
     await user.type(screen.getByLabelText(/type the email/i), "amy@x.com");

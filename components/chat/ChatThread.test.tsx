@@ -67,6 +67,13 @@ describe("ChatThread", () => {
     expect(replace).toHaveBeenCalledWith("/chat/c_new");
   });
 
+  test("an empty chat offers starter prompts that fill the message box", async () => {
+    render(<ChatThread />);
+    await userEvent.click(screen.getByRole("button", { name: /brainstorm names/i }));
+    expect(screen.getByLabelText(/message/i)).toHaveValue("Brainstorm names for a new feature");
+    expect(send).not.toHaveBeenCalled();
+  });
+
   test("Enter sends; Shift+Enter adds a new line", async () => {
     render(<ChatThread conversationId="c1" />);
     const box = screen.getByLabelText(/message/i);
