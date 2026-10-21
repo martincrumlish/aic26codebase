@@ -28,10 +28,15 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 11. **No secrets in git.** `.env.local` is gitignored; secrets are Convex env vars (`npx convex env set`).
 12. **Verify UI changes in a real browser**, at desktop and phone width, before calling them done.
 13. **Commit per task** with a conventional-commit message (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`), after the typecheck and tests pass.
+14. **A Convex mutation that throws is rolled back entirely**, including `ctx.storage.delete` and `ctx.scheduler` calls. When cleanup has to stick, return an error result instead of throwing (see `projects.setAttachment`).
+15. **New features: copy the Projects example** (`convex/projects.ts`, `components/projects/`, `app/(app)/projects/`). It already does owner checks, pagination, plan limits, and file storage the way this codebase expects. Reads of a single row return `null` for "missing or not yours"; writes throw.
 
 ## Where things live
 
 - App name/description: `lib/site.ts`
 - Public landing page: `components/landing/Landing.tsx`
 - Main signed-in screen (placeholder): `app/(app)/dashboard/page.tsx`
+- Example feature to copy: `convex/projects.ts` + `components/projects/` + `app/(app)/projects/`
+- Plans and limits: `convex/lib/plans.ts` (prices in `convex/lib/proPrice.json`); plan lookup: `convex/lib/plan.ts`; billing backend: `convex/billing.ts`
+- Sidebar nav items: `NAV` in `components/app-shell/AppShell.tsx`; route protection: `middleware.ts`
 - Schema: `convex/schema.ts`; access helpers: `convex/access.ts`; admin backend: `convex/admin.ts`

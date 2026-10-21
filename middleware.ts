@@ -10,6 +10,7 @@ const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)",
   "/admin(.*)",
   "/settings(.*)",
+  "/projects(.*)",
 ]);
 
 // Public (no auth required).

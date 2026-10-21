@@ -19,6 +19,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
   - [Auth flows](#auth-flows)
   - [The admin console](#the-admin-console)
   - [Billing (Stripe)](#billing-stripe)
+  - [The Projects example](#the-projects-example)
   - [Provisioning webhook](#provisioning-webhook)
   - [Email](#email)
   - [BYOK AI (OpenRouter)](#byok-ai-openrouter)
@@ -38,7 +39,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 |---|---|
 | **Landing page** | A plain public home page at `/` (name and description from `lib/site.ts`) - replace it with your own marketing page |
 | **Auth pages** | `/signup` (open sign-up), `/signin`, `/join/[token]` (signup via link), `/activate/[token]` (accounts created for someone else), `/reset` (password reset by emailed code); email confirmation by code when email is set up |
-| **Auth gating** | `convex/authGate.ts` - signup only works with a valid signup link or a pre-created account, and fails closed otherwise; revoked users are locked out everywhere |
+| **Auth gating** | `convex/authGate.ts` - open sign-up by default, or `SIGNUP_MODE=link` for signup links and pre-created accounts only; pre-created accounts can only be claimed with their own activation link; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
 | **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
 | **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
@@ -46,10 +47,11 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
 | **BYOK AI** | Per-user OpenRouter API keys, verified before saving, stored write-only (the browser only ever sees the last 4 characters), with an optional app-wide fallback key |
 | **App shell** | Sidebar on desktop; a top bar with a slide-out menu on phones; account menu with settings, dark/light mode, and sign-out |
+| **Projects example** (`/projects`) | A complete worked feature to copy: paginated list, detail page, edit, file upload to Convex storage, delete, owner checks, and a Free-plan limit (3 projects) with an upgrade prompt |
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
 | **Settings** | Profile, password change, AI key management |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 176 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 201 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -220,6 +222,24 @@ For developers:
 - Deleting a user from the admin console cancels their Stripe subscriptions, so nobody is billed for a deleted account.
 - **Going live:** in Stripe, switch to live mode and run `npm run setup:stripe -- --prod --convex-site-url https://<your-prod-deployment>.convex.site` with your live secret key.
 
+### The Projects example
+
+`/projects` is a small but complete feature, there to be copied and renamed into your own (clients, documents, bookings...). Everything a real feature needs is in three files:
+
+- **`convex/projects.ts`** - the backend, with a comment at the top listing each pattern:
+  - every function starts with `requireUser`, and every read or write checks the project belongs to the caller. Someone else's project looks exactly like a missing one (`get` returns `null`; writes throw "Project not found"), so ids can't be probed.
+  - `list` uses the `by_owner` index with pagination - never a full-table scan.
+  - `create` enforces the plan limit on the server (`PLANS.free.limits.projects`, 3 by default; Pro is unlimited).
+  - file upload in two steps: `generateUploadUrl` gives the browser a short-lived URL to POST the file to, then `setAttachment` records it (and enforces a 10 MB cap). Replacing or deleting cleans up the old file.
+- **`components/projects/ProjectsList.tsx`** - `usePaginatedQuery` with **Load more**, plan usage ("2 of 3 projects on the Free plan"), and an **Upgrade to Pro** prompt at the limit.
+- **`components/projects/ProjectDetail.tsx`** - edit form, attach/replace/remove a file, and delete with a confirmation dialog.
+
+The table is in `convex/schema.ts`, and deleting a user deletes their projects and files (the cascade in `convex/admin.ts`). Tests: `convex/projects.test.ts` and the component tests next to each component.
+
+**One Convex gotcha the example shows:** a mutation that throws is rolled back completely, including any file it deleted or anything it scheduled. So `setAttachment` *returns* `{ok: false, error}` for a too-big file instead of throwing - otherwise deleting the rejected file would be undone.
+
+To remove the example: delete `app/(app)/projects/`, `components/projects/`, `convex/projects.ts` and its test, the `projects` table in the schema, its block in the `deleteUserAccount` cascade, the nav item in `components/app-shell/AppShell.tsx`, and `/projects(.*)` in `middleware.ts`.
+
 ### Provisioning webhook
 
 For payment platforms other than Stripe. `POST https://<your-deployment>.convex.site/provision` lets another system create users - typically your payment platform's "new sale" webhook.
@@ -282,10 +302,10 @@ On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder
 - `components/landing/Landing.tsx` - the public home page
 - `app/(app)/dashboard/page.tsx` - your main screen, keeping its loading-skeleton pattern
 
-**5. Add your own tables.** For every table whose rows belong to a user:
+**5. Add your own tables.** The quickest way is to copy [the Projects example](#the-projects-example) and rename it. Either way, for every table whose rows belong to a user:
 - Define it in `convex/schema.ts` **with an index on the owner field** (e.g. `.index("by_owner", ["ownerId"])`).
 - Start every function that touches it with `requireUser` or `requireAdmin` from `convex/access.ts`, and check the row belongs to the caller.
-- Add it to the **delete cascade** in `deleteUserAccount` in `convex/admin.ts` (section 1, before the auth records), including freeing any files it stores. There's a `userApiKeys` example right there to copy.
+- Add it to the **delete cascade** in `deleteUserAccount` in `convex/admin.ts` (section 1, before the auth records), including freeing any files it stores. The `projects` block there shows how.
 
 **6. Decide how people get accounts.**
 - Manual: generate standing signup links in `/admin` - e.g. one per plan - and rotate them whenever you like. Works out of the box.
@@ -310,6 +330,7 @@ These are the rules the codebase follows - future code (and AI assistants) shoul
 - **Typecheck before commit.** `npx tsc --noEmit` (delete `.next/types` and `.next/dev/types` first if Next generated them; don't pipe the output - pipes hide the exit code).
 - **No secrets in git.** `.env.local` is gitignored; secrets live in Convex env vars, and the database stores env-var *names*, never values.
 - **Fail closed on access, fail soft on email.** Anything guarding access refuses when unsure; email failures never break the action that sent the email.
+- **A mutation that throws is rolled back.** That includes file deletes and scheduled functions. When cleanup must stick, return an error result instead of throwing (see `projects.setAttachment`).
 
 ## Environment variable reference
 
@@ -332,7 +353,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (176 tests)
+npm run test:run       # everything (201 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -365,7 +386,8 @@ app/
   (app)/               # signed-in pages, wrapped in the app shell
     admin/             #   admin console
     dashboard/         #   <- replace with your product
-    settings/          #   profile / password / AI key
+    projects/          #   the example feature (list + [id] detail)
+    settings/          #   profile / password / billing / AI key
   activate/[token]/    # activation (accounts created for someone)
   join/[token]/        # signup via link
   signup/  signin/  reset/  # sign-up, sign-in, password reset
@@ -373,7 +395,9 @@ components/
   admin/               # admin console (users table, signup links, dialogs)
   app-shell/           # sidebar, phone menu, account menu
   auth/                # sign-in, signup, activation, reset forms
+  billing/             # pricing cards, billing card, post-purchase welcome
   landing/             # <- replace with your landing page
+  projects/            # the example feature's list and detail
   settings/            # settings cards (profile, password, AI)
   ui/                  # shadcn-style building blocks (Base UI)
 convex/
@@ -387,6 +411,7 @@ convex/
   email.ts  lib/resend.ts  # sending email
   ai.ts                # BYOK OpenRouter keys
   billing.ts           # Stripe: plans, checkout, portal, pay-first purchases
+  projects.ts          # the example feature - copy this to build your own
   lib/plans.ts         # your plans (names, features, limits); prices in lib/proPrice.json
   seed.ts              # first-admin bootstrap
   *.test.ts            # backend tests, next to their modules

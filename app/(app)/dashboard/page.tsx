@@ -3,6 +3,7 @@
 // Dashboard — boilerplate placeholder. Replace the card grid with your app's
 // primary resource list. Keep the loading pattern: `useQuery` returns
 // `undefined` while loading, so render a skeleton — never flash an empty state.
+import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
@@ -30,7 +31,15 @@ export default function DashboardPage() {
             <span className="font-medium text-foreground">
               {me?.email ?? "unknown"}
             </span>
-            {me?.role ? ` — role: ${me.role}` : null}. Build your app here.
+            {me?.role ? ` (role: ${me.role})` : null}. Build your app here.
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            For a worked example of a feature (list, detail page, file upload,
+            plan limits), see{" "}
+            <Link href="/projects" className="font-medium text-foreground underline">
+              Projects
+            </Link>
+            .
           </p>
         </div>
       )}

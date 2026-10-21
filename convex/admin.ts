@@ -474,6 +474,16 @@ export const deleteUserAccount = mutation({
     const userId = args.userId;
 
     // ── 1. App-owned data. Add new owner-keyed tables here.
+    // projects (the example feature): rows and their stored files.
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+      .collect();
+    for (const p of projects) {
+      if (p.attachmentId) await ctx.storage.delete(p.attachmentId);
+      await ctx.db.delete(p._id);
+    }
+
     const billing = await ctx.db
       .query("billingAccounts")
       .withIndex("by_user", (q) => q.eq("userId", userId))

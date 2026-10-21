@@ -26,6 +26,7 @@ import type * as lib_stripeConfig from "../lib/stripeConfig.js";
 import type * as lib_tokens from "../lib/tokens.js";
 import type * as password from "../password.js";
 import type * as passwordReset from "../passwordReset.js";
+import type * as projects from "../projects.js";
 import type * as provisionHttp from "../provisionHttp.js";
 import type * as provisioning from "../provisioning.js";
 import type * as seed from "../seed.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tokens": typeof lib_tokens;
   password: typeof password;
   passwordReset: typeof passwordReset;
+  projects: typeof projects;
   provisionHttp: typeof provisionHttp;
   provisioning: typeof provisioning;
   seed: typeof seed;

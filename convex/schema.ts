@@ -70,6 +70,17 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_user", ["userId"]),
 
+  // The example feature (see convex/projects.ts). Copy this shape for your own
+  // user-owned data: an owner id with an index on it.
+  projects: defineTable({
+    ownerId: v.id("users"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    attachmentId: v.optional(v.id("_storage")),
+    attachmentName: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_owner", ["ownerId"]),
+
   webhooks: defineTable({
     scope: v.string(),
     signingSecretRef: v.string(), // env-var NAME, never the secret value
