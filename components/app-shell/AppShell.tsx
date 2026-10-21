@@ -26,8 +26,7 @@ const NAV: NavItem[] = [
 
 /**
  * Authenticated app shell: branded sidebar (logo + nav + user footer) wrapping
- * the page content. Applied to every route under app/(app); the full-screen
- * editor/viewer routes live outside the group and render no shell.
+ * the page content. Applied to every route under app/(app).
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

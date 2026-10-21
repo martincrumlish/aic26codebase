@@ -1,8 +1,8 @@
 // convex/ai.ts — BYOK OpenRouter key management.
 //
-// Write-only discipline (same as pinHash in the source app): the raw key goes
-// in via setOpenRouterKey and only ever comes back out through the INTERNAL
-// getOpenRouterKeyForUser. Public reads (getAiStatus) expose last4 only.
+// Write-only discipline: the raw key goes in via setOpenRouterKey and only
+// ever comes back out through the INTERNAL getOpenRouterKeyForUser. Public
+// reads (getAiStatus) expose last4 only.
 //
 // Key resolution order: user's own key → OPENROUTER_API_KEY env → disabled.
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";

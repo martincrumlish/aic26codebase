@@ -4,10 +4,11 @@ import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "AI26 Codebase",
-  description: "Author, present, and deliver guided mind maps.",
+  title: siteConfig.name,
+  description: siteConfig.description,
 };
 
 export default function RootLayout({
