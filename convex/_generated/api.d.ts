@@ -14,6 +14,7 @@ import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as authGate from "../authGate.js";
 import type * as billing from "../billing.js";
+import type * as branding from "../branding.js";
 import type * as chat from "../chat.js";
 import type * as email from "../email.js";
 import type * as google from "../google.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   authGate: typeof authGate;
   billing: typeof billing;
+  branding: typeof branding;
   chat: typeof chat;
   email: typeof email;
   google: typeof google;

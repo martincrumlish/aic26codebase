@@ -2,6 +2,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { siteConfig } from "@/lib/site";
+import { DEFAULT_BRAND } from "@/lib/brandTheme";
 import { Landing } from "./Landing";
 
 describe("Landing", () => {
@@ -21,6 +22,18 @@ describe("Landing", () => {
   test("when sign-up is open, also offers Get started", () => {
     render(<Landing signupOpen />);
     expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");
+  });
+
+  test("uses the brand from Admin > Branding when there is one", () => {
+    render(
+      <Landing
+        signupOpen
+        brand={{ ...DEFAULT_BRAND, name: "Fieldnote", description: "Notes for field teams.", logoUrl: "https://x.test/logo.png" }}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Fieldnote" })).toBeInTheDocument();
+    expect(screen.getByText("Notes for field teams.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Fieldnote" })).toHaveAttribute("src", "https://x.test/logo.png");
   });
 
   test("shows a preview of the app and what it does", () => {

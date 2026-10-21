@@ -16,7 +16,7 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 ## Rules
 
 1. **Test first.** Write the failing test, run it and watch it fail for the right reason, implement, watch it pass. Backend tests go next to their module (`convex/foo.test.ts`); component tests next to their component.
-2. **Every Convex function starts with an access check** from `convex/access.ts`: `requireUserId`, `requireUser`, `requirePro` (paid features), or `requireAdmin`. Actions can't read the database, so they check through an internal query (see `email.assertAdmin`, `billing.me`, `admin.passwordTarget`). Only `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `signup.googleEnabled`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome` are deliberately public, because signed-out pages use them. Don't add more without a reason.
+2. **Every Convex function starts with an access check** from `convex/access.ts`: `requireUserId`, `requireUser`, `requirePro` (paid features), or `requireAdmin`. Actions can't read the database, so they check through an internal query (see `email.assertAdmin`, `billing.me`, `admin.passwordTarget`). Only `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `signup.googleEnabled`, `branding.get`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome` are deliberately public, because signed-out pages use them. Don't add more without a reason.
 3. **Never trust a user id from the client for identity.** Derive the caller from the session (`requireUser`). A `userId` argument is only acceptable as the *target* of an admin action, after `requireAdmin`.
 4. **User-owned tables:** index the owner field, check ownership in every function, and add the table to the delete cascade in `deleteUserAccount` (`convex/admin.ts`, section 1).
 5. **Roles are `admin` and `user`; status is `active` or `revoked`.** `convex/authGate.ts` and `convex/access.ts` depend on both. For product tiers, add a separate field (e.g. `plan`) rather than new roles. Signup links and the webhook only ever create `user`.
@@ -37,7 +37,8 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 - App name/description: `lib/site.ts`
 - Public landing page: `components/landing/Landing.tsx`
 - Main signed-in screen (a starting point to replace): `app/(app)/dashboard/page.tsx` → `components/dashboard/Overview.tsx`
-- Look and feel: colour tokens (including the app's grey `--canvas`) in `app/globals.css`; typeface (Geist) in `app/layout.tsx`; page frame in `components/app-shell/Page.tsx`
+- Look and feel: colour tokens (including the app's grey `--canvas` and the YOUR BRAND block) in `app/globals.css`; typeface (Geist) in `app/layout.tsx`; page frame in `components/app-shell/Page.tsx`
+- Branding (Admin > Branding): stored by `convex/branding.ts`, read per request by `getBrand()` in `lib/brand.server.ts`, merged over the defaults in `lib/brandTheme.ts`. Server components showing the name, logo or artwork take them from `getBrand()` (or a `brand` prop), never from `lib/site.ts` directly, and colours always come from tokens (`bg-sidebar`, `text-sidebar-foreground`, `bg-primary`), never hardcoded, so Branding can change them.
 - Example feature to copy: `convex/projects.ts` + `components/projects/` + `app/(app)/projects/`
 - AI chat: `convex/chat.ts` (system prompt at the top) + `components/chat/`; offered models: `convex/lib/aiModels.ts`; which key pays: `convex/lib/aiKey.ts`. Any new AI feature should get its key from `resolveOpenRouterKey` and only allow models from `aiModels.ts`.
 - Plans and limits: `convex/lib/plans.ts` (prices in `convex/lib/proPrice.json`); plan lookup: `convex/lib/plan.ts`; billing backend: `convex/billing.ts`

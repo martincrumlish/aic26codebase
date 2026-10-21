@@ -42,6 +42,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Auth gating** | `convex/authGate.ts` - open sign-up by default, or `SIGNUP_MODE=link` for signup links and pre-created accounts only; pre-created accounts can only be claimed with their own activation link; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
 | **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
+| **Branding** (`/admin/branding`) | Admins set the app's name, description, brand and button colours, logo and sign-in artwork, with a live preview. Applied to every page, signed in or not, with no redeploy; text colours are picked automatically to stay readable |
 | **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
 | **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from your payment platform or any other system |
 | **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
@@ -52,7 +53,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 265 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 289 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -309,6 +310,14 @@ The intended workflow: **use the GitHub template** (or clone and re-init), renam
 On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder, and `git init` for a clean history).
 
 **2. Make it yours: name, logo, colours.**
+
+There are two ways, and they work together:
+- **In the app, no code:** sign in as an admin and open **Admin > Branding**. Set the name, description, brand and button colours, and upload a logo and sign-in artwork. Changes apply to every page on the next load. **Reset to defaults** goes back to what's in the code.
+- **In the code:** the defaults below. They're what you see until an admin changes something, and what **Reset to defaults** restores.
+
+The landing page's app screenshot (`public/brand/app-preview.png`) is a fixed image either way: replace it with a screenshot of your product.
+
+Code defaults:
 - `lib/site.ts` - your app's name and one-line description (browser tab, landing page, sign-in panel, footer)
 - `package.json` - `name`
 - `public/brand/` - replace the images, keeping the file names:
@@ -330,7 +339,9 @@ On GitHub, click **Use this template** (or `git clone`, delete the `.git` folder
   | `--primary` | Buttons, links and highlights (set it in `:root` and `.dark`) |
   | `--canvas` | The grey page background inside the app |
 
-  Any CSS colour works (`#hex`, `rgb()`, `oklch()`). The typeface is set in `app/layout.tsx` (Geist by default).
+  Any CSS colour works (`#hex`, `rgb()`, `oklch()`). If you change `--sidebar` or `--primary`, also update `DEFAULT_COLORS` in `lib/brandTheme.ts`, which the Branding page shows as the defaults. The typeface is set in `app/layout.tsx` (Geist by default).
+
+  How it fits together: `convex/branding.ts` stores what an admin set; `lib/brand.server.ts` reads it once per request and `lib/brandTheme.ts` merges it over the defaults and writes the colour overrides into the page's `<head>` (so there's no flash of the default colours). The default artwork is drawn for the default navy, so once an admin picks their own brand colour it's replaced by a soft highlight in that colour, unless they upload artwork.
 
 **3. Wire a fresh Convex project** - follow the [Quickstart](#quickstart-running-it-locally).
 
@@ -358,7 +369,7 @@ Working with an AI coding assistant? `AGENTS.md` (also read by Claude Code via `
 These are the rules the codebase follows - future code (and AI assistants) should too. The same list is in `AGENTS.md`.
 
 - **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests sit next to their module (`convex/foo.test.ts`), component tests next to their component.
-- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the ones signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `signup.googleEnabled`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome`.
+- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the ones signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `signup.googleEnabled`, `branding.get`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome`.
 - **Never link a sign-up to an existing account by email alone.** A pre-created account can only be claimed with its own activation token, which `convex/authGate.ts` checks and uses up. Any new way of pre-creating accounts must issue a token and present it the same way (see `admin.createUserAccount`).
 - **Write-only secrets.** Sensitive values (API keys, passwords) never reach the browser. Public queries return derived facts only (`last4`, booleans); raw values go through `internal*` functions.
 - **Cascade deletes.** New user-owned tables must be added to `deleteUserAccount` in `convex/admin.ts`. Deleting a user should leave nothing behind.
@@ -390,7 +401,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (265 tests)
+npm run test:run       # everything (289 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -421,7 +432,7 @@ Dev and prod are completely separate, with their own data and env vars - running
 app/
   page.tsx             # "/" - landing page (signed in: redirects to dashboard)
   (app)/               # signed-in pages, wrapped in the app shell
-    admin/             #   admin console
+    admin/             #   admin console; admin/branding = Branding
     chat/              #   AI chat (new chat + [id] conversation)
     dashboard/         #   <- replace with your product
     projects/          #   the example feature (list + [id] detail)
@@ -453,11 +464,14 @@ convex/
   lib/aiKey.ts         # which key pays for a user's AI calls
   lib/aiModels.ts      # the models the chat offers
   billing.ts           # Stripe: plans, checkout, portal, pay-first purchases
+  branding.ts          # Admin > Branding: name, colours, logo, artwork
   projects.ts          # the example feature - copy this to build your own
   lib/plans.ts         # your plans (names, features, limits); prices in lib/proPrice.json
   seed.ts              # first-admin bootstrap
   *.test.ts            # backend tests, next to their modules
-lib/site.ts            # your app's name and description
+lib/site.ts            # your app's default name and description
+lib/brandTheme.ts      # brand defaults + turning Admin > Branding into colours
+lib/brand.server.ts    # the brand for the current request (server only)
 lib/security/headers.ts # security response headers
 middleware.ts          # route protection
 scripts/               # `npm run setup`, `setup:stripe`, `setup:google`

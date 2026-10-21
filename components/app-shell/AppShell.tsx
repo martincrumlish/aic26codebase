@@ -4,8 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "convex/react";
-import { FolderIcon, LayoutDashboardIcon, MenuIcon, MessageSquareIcon, ShieldIcon } from "lucide-react";
+import { FolderIcon, LayoutDashboardIcon, MenuIcon, MessageSquareIcon, PaletteIcon, ShieldIcon } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import { DEFAULT_BRAND } from "@/lib/brandTheme";
 import { AccountMenu } from "@/components/app-shell/AccountMenu";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -23,13 +24,39 @@ const NAV: NavItem[] = [
   { href: "/chat", label: "AI chat", Icon: MessageSquareIcon },
   // Settings lives in the Account menu (bottom-left), not the main nav.
   { href: "/admin", label: "Admin", Icon: ShieldIcon, adminOnly: true },
+  { href: "/admin/branding", label: "Branding", Icon: PaletteIcon, adminOnly: true },
 ];
+
+/** The nav item for the current page: the longest href that matches. */
+function activeHref(pathname: string) {
+  return NAV.map((n) => n.href)
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+}
+
+type Branding = { logoUrl: string; appName: string };
+
+function Logo({ logoUrl, appName, className }: Branding & { className?: string }) {
+  return (
+    <Image
+      src={logoUrl}
+      alt={appName}
+      width={300}
+      height={63}
+      priority
+      // Uploaded logos come from Convex storage; serve them as they are.
+      unoptimized={!logoUrl.startsWith("/")}
+      className={className}
+    />
+  );
+}
 
 /** Logo + nav + account menu. Shared by the desktop sidebar and the phone menu. */
 function SidebarBody({
   onNavigate,
   logoClassName,
-}: {
+  ...brand
+}: Branding & {
   onNavigate?: () => void;
   logoClassName?: string;
 }) {
@@ -38,9 +65,10 @@ function SidebarBody({
   const isAdmin = me?.role === "admin";
   const main = NAV.filter((n) => !n.adminOnly);
   const admin = isAdmin ? NAV.filter((n) => n.adminOnly) : [];
+  const current = activeHref(pathname);
 
   const link = ({ href, label, Icon }: NavItem) => {
-    const active = pathname === href || pathname.startsWith(`${href}/`);
+    const active = href === current;
     return (
       <Link
         key={href}
@@ -67,14 +95,7 @@ function SidebarBody({
         onClick={onNavigate}
         className={cn("flex h-16 shrink-0 items-center px-5 transition-opacity hover:opacity-90", logoClassName)}
       >
-        <Image
-          src="/brand/small-transparent.png"
-          alt="App logo"
-          width={300}
-          height={63}
-          priority
-          className="h-7 w-auto"
-        />
+        <Logo {...brand} className="h-7 w-auto max-w-full object-contain object-left" />
       </Link>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 pt-2">
@@ -101,8 +122,18 @@ function SidebarBody({
  * tablet width up: a fixed sidebar. On phones: a top bar whose menu button
  * slides the same sidebar in from the left.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  logoUrl = DEFAULT_BRAND.logoUrl,
+  appName = DEFAULT_BRAND.name,
+}: {
+  children: React.ReactNode;
+  /** From Admin > Branding via app/(app)/layout.tsx; the code default otherwise. */
+  logoUrl?: string;
+  appName?: string;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const brand = { logoUrl, appName };
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground md:flex-row">
@@ -117,24 +148,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SheetContent side="left" className="bg-sidebar text-sidebar-foreground">
             <SheetTitle className="sr-only">Menu</SheetTitle>
             {/* pr-12 keeps the logo clear of the sheet's close button. */}
-            <SidebarBody onNavigate={() => setMenuOpen(false)} logoClassName="pr-12" />
+            <SidebarBody {...brand} onNavigate={() => setMenuOpen(false)} logoClassName="pr-12" />
           </SheetContent>
         </Sheet>
         <Link href="/dashboard" className="h-7">
-          <Image
-            src="/brand/small-transparent.png"
-            alt="App logo"
-            width={300}
-            height={63}
-            className="h-7 w-auto"
-          />
+          <Logo {...brand} className="h-7 w-auto max-w-48 object-contain" />
         </Link>
         {/* Spacer balances the menu button so the logo stays centred. */}
         <span className="w-9" aria-hidden="true" />
       </header>
 
       <aside className="hidden w-60 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
-        <SidebarBody />
+        <SidebarBody {...brand} />
       </aside>
 
       <main className="min-w-0 flex-1 overflow-auto bg-canvas">{children}</main>

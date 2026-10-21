@@ -1,11 +1,13 @@
 // app/pricing/page.tsx — public pricing page (plans from convex/lib/plans.ts).
 import { PricingPlans } from "@/components/billing/PricingPlans";
 import { SiteFooter, SiteHeader } from "@/components/landing/SiteChrome";
+import { getBrand } from "@/lib/brand.server";
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const brand = await getBrand();
   return (
     <div className="flex min-h-dvh flex-col bg-sidebar text-sidebar-foreground">
-      <SiteHeader />
+      <SiteHeader brand={brand} />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 pb-20 pt-12 sm:px-6 md:pt-16">
         <div className="mb-10 text-center">
           <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">Pricing</h1>
@@ -16,7 +18,7 @@ export default function PricingPage() {
           Prices in USD. Cancel any time from your billing settings.
         </p>
       </main>
-      <SiteFooter />
+      <SiteFooter brand={brand} />
     </div>
   );
 }

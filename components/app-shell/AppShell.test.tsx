@@ -29,12 +29,20 @@ describe("AppShell", () => {
     const panel = await screen.findByRole("dialog");
     expect(within(panel).getByRole("link", { name: /dashboard/i })).toBeInTheDocument();
     expect(within(panel).getByRole("link", { name: /admin/i })).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: /branding/i })).toHaveAttribute("href", "/admin/branding");
+  });
+
+  test("shows the logo it's given (from Admin > Branding)", () => {
+    me = { email: "u@x.com", role: "user" };
+    render(<AppShell logoUrl="https://x.convex.cloud/api/storage/logo" appName="Fieldnote"><p>content</p></AppShell>);
+    const logos = screen.getAllByRole("img", { name: "Fieldnote" });
+    expect(logos[0]).toHaveAttribute("src", "https://x.convex.cloud/api/storage/logo");
   });
 
   test("regular users don't see the Admin link anywhere", () => {
     me = { email: "u@x.com", role: "user" };
     render(<AppShell><p>content</p></AppShell>);
-    expect(screen.queryAllByRole("link", { name: /admin/i })).toHaveLength(0);
+    expect(screen.queryAllByRole("link", { name: /admin|branding/i })).toHaveLength(0);
     expect(screen.getAllByRole("link", { name: /dashboard/i }).length).toBeGreaterThan(0);
   });
 });

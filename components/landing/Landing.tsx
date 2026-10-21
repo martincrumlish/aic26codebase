@@ -1,14 +1,16 @@
 // components/landing/Landing.tsx — the public home page signed-out visitors
-// see at "/". A starting point for your own marketing page: the name and
-// description come from lib/site.ts, the features from FEATURES below, and the
-// preview is a screenshot of the app (public/brand/app-preview.png). Swap in
-// your own copy and a screenshot of your product.
+// see at "/". A starting point for your own marketing page: the name,
+// description, logo and artwork come from the brand (Admin > Branding, or the
+// defaults in lib/site.ts and public/brand/), the features from FEATURES
+// below, and the preview is a screenshot of the app
+// (public/brand/app-preview.png). Swap in your own copy and screenshot.
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRightIcon, CreditCardIcon, FolderIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
-import { siteConfig } from "@/lib/site";
+import { DEFAULT_BRAND, type Brand } from "@/lib/brandTheme";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { BrandBackdrop } from "./BrandBackdrop";
 import { SiteFooter, SiteHeader } from "./SiteChrome";
 
 // What the app does. These describe what's built in; replace them with your
@@ -36,27 +38,20 @@ const FEATURES = [
   },
 ];
 
-export function Landing({ signupOpen }: { signupOpen: boolean }) {
+export function Landing({ signupOpen, brand = DEFAULT_BRAND }: { signupOpen: boolean; brand?: Brand }) {
   return (
     <div className="flex min-h-dvh flex-col bg-sidebar text-sidebar-foreground">
       <div className="relative overflow-hidden">
         {/* The same artwork as the sign-in page, fading in from the bottom-left. */}
-        <Image
-          src="/brand/auth-bg.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="pointer-events-none object-cover object-[left_bottom] opacity-60"
-        />
+        <BrandBackdrop artworkUrl={brand.artworkUrl} sizes="100vw" className={brand.artworkUrl ? "opacity-60" : undefined} />
         <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-transparent to-sidebar" aria-hidden="true" />
-        <SiteHeader />
+        <SiteHeader brand={brand} />
 
         <main className="relative">
           <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pb-20 pt-12 sm:px-6 md:pt-20 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-8">
             <div>
-              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">{siteConfig.name}</h1>
-              <p className="mt-5 max-w-md text-lg leading-relaxed text-sidebar-foreground/70">{siteConfig.description}</p>
+              <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">{brand.name}</h1>
+              <p className="mt-5 max-w-md text-lg leading-relaxed text-sidebar-foreground/70">{brand.description}</p>
               <div className="mt-8 flex flex-wrap items-center gap-3">
                 {signupOpen ? (
                   <Link href="/signup" className={cn(buttonVariants({ size: "lg" }), "px-5 shadow-lg shadow-primary/20")}>
@@ -73,7 +68,7 @@ export function Landing({ signupOpen }: { signupOpen: boolean }) {
               <div className="overflow-hidden rounded-xl border border-sidebar-foreground/15 bg-sidebar-foreground/5 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-sm">
                 <Image
                   src="/brand/app-preview.png"
-                  alt={`A preview of the app: the ${siteConfig.name} dashboard`}
+                  alt={`A preview of the app: the ${brand.name} dashboard`}
                   width={1120}
                   height={600}
                   priority
@@ -102,7 +97,7 @@ export function Landing({ signupOpen }: { signupOpen: boolean }) {
       </section>
 
       <div className="mt-auto">
-        <SiteFooter />
+        <SiteFooter brand={brand} />
       </div>
     </div>
   );

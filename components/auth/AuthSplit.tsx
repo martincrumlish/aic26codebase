@@ -6,9 +6,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeftIcon } from "lucide-react";
-import { siteConfig } from "@/lib/site";
+import { getBrand } from "@/lib/brand.server";
+import { BrandBackdrop } from "@/components/landing/BrandBackdrop";
 
-export function AuthSplit({
+/** Images from Admin > Branding live in Convex storage; serve those as they are. */
+const remote = (src: string) => !src.startsWith("/");
+
+export async function AuthSplit({
   title,
   description,
   children,
@@ -17,32 +21,27 @@ export function AuthSplit({
   description?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const brand = await getBrand();
   return (
     <main className="grid min-h-dvh md:grid-cols-2">
       {/* Brand panel: the sidebar colour, with the artwork on top. */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-sidebar p-10 text-sidebar-foreground md:flex">
-        <Image
-          src="/brand/auth-bg.png"
-          alt=""
-          fill
-          priority
-          sizes="50vw"
-          className="object-cover object-[left_bottom]"
-        />
+        <BrandBackdrop artworkUrl={brand.artworkUrl} sizes="50vw" />
         <span aria-hidden="true" />
         <div className="relative z-10 flex flex-col items-center gap-5 text-center">
           <Image
-            src="/brand/mid-transparent.png"
-            alt={siteConfig.name}
+            src={brand.logoLargeUrl}
+            alt={brand.name}
             width={600}
             height={125}
             priority
-            className="h-14 w-auto"
+            unoptimized={remote(brand.logoLargeUrl)}
+            className="h-14 w-auto max-w-xs object-contain"
           />
-          <p className="max-w-xs text-sidebar-foreground/70">{siteConfig.description}</p>
+          <p className="max-w-xs text-sidebar-foreground/70">{brand.description}</p>
         </div>
         <p className="relative z-10 text-sm text-sidebar-foreground/40">
-          © {new Date().getFullYear()} {siteConfig.name}
+          © {new Date().getFullYear()} {brand.name}
         </p>
       </div>
 
@@ -51,11 +50,12 @@ export function AuthSplit({
         <div className="flex h-14 items-center justify-center bg-sidebar md:hidden">
           <Link href="/">
             <Image
-              src="/brand/small-transparent.png"
-              alt={siteConfig.name}
+              src={brand.logoUrl}
+              alt={brand.name}
               width={300}
               height={63}
-              className="h-6 w-auto"
+              unoptimized={remote(brand.logoUrl)}
+              className="h-6 w-auto max-w-48 object-contain"
             />
           </Link>
         </div>

@@ -104,6 +104,18 @@ export default defineSchema({
     .index("by_conversation", ["conversationId"])
     .index("by_owner", ["ownerId"]),
 
+  // Admin > Branding (see convex/branding.ts). At most one row; anything not
+  // set falls back to the defaults in code (lib/brandTheme.ts).
+  branding: defineTable({
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    brandColor: v.optional(v.string()), // #rrggbb
+    primaryColor: v.optional(v.string()), // #rrggbb
+    logoId: v.optional(v.id("_storage")),
+    artworkId: v.optional(v.id("_storage")),
+    updatedAt: v.number(),
+  }),
+
   webhooks: defineTable({
     scope: v.string(),
     signingSecretRef: v.string(), // env-var NAME, never the secret value
