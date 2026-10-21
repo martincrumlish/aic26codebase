@@ -22,13 +22,19 @@ export function ResetForm() {
     setSubmitting(true);
     try {
       await signIn("password", fd);
-      setStep("verify");
-      toast.success("If that address is enabled, a reset code is on its way.");
     } catch (err) {
-      toast.error(err instanceof ConvexError ? (err.data as string) : "Could not send a reset code.");
-    } finally {
-      setSubmitting(false);
+      // A ConvexError is a deliberate, user-facing explanation (e.g. email
+      // isn't set up). Anything else — including "no such account" — is
+      // treated as success so the form never reveals which emails exist.
+      if (err instanceof ConvexError) {
+        toast.error(err.data as string);
+        setSubmitting(false);
+        return;
+      }
     }
+    setSubmitting(false);
+    setStep("verify");
+    toast.success("If that address has an account, a reset code is on its way.");
   }
 
   async function onVerify(e: React.FormEvent<HTMLFormElement>) {
@@ -48,9 +54,11 @@ export function ResetForm() {
     }
   }
 
+  // Distinct keys make React remount the inputs when the step changes;
+  // otherwise the uncontrolled email input's value leaks into the code input.
   if (step === "request") {
     return (
-      <form onSubmit={onRequest} className="space-y-4">
+      <form key="request" onSubmit={onRequest} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="rs-email">Email</Label>
           <Input id="rs-email" name="email" type="email" autoComplete="email" required />
@@ -61,14 +69,24 @@ export function ResetForm() {
   }
 
   return (
-    <form onSubmit={onVerify} className="space-y-4">
+    <form key="verify" onSubmit={onVerify} className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Enter the 8-digit code we emailed to {email} and choose a new password.
+      </p>
       <div className="space-y-2">
         <Label htmlFor="rs-code">Reset code</Label>
-        <Input id="rs-code" name="code" inputMode="numeric" required />
+        <Input id="rs-code" name="code" inputMode="numeric" autoComplete="one-time-code" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="rs-newpw">New password</Label>
-        <Input id="rs-newpw" name="newPassword" type="password" autoComplete="new-password" required />
+        <Input
+          id="rs-newpw"
+          name="newPassword"
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+          required
+        />
       </div>
       <Button type="submit" className="w-full" disabled={submitting}>Set new password</Button>
     </form>

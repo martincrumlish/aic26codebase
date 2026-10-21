@@ -1,4 +1,5 @@
-// convex/email.ts — all transactional email goes through this one module.
+// convex/email.ts — transactional email for app code. Call internal.email.send
+// from any action; don't call the Resend API directly.
 //
 // Fail-soft contract: `send` NEVER throws. Missing AUTH_RESEND_KEY, a Resend
 // error response, or a network failure all return {sent:false, reason} so
@@ -7,13 +8,13 @@ import { action, internalAction, internalQuery, query } from "./_generated/serve
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin, requireUser } from "./access";
+import { sendViaResend, type SendResult } from "./lib/resend";
 
 const SendResult = v.object({
   sent: v.boolean(),
   id: v.optional(v.string()),
   reason: v.optional(v.string()),
 });
-type SendResult = { sent: boolean; id?: string; reason?: string };
 
 export const send = internalAction({
   args: {
@@ -22,31 +23,7 @@ export const send = internalAction({
     html: v.string(),
   },
   returns: SendResult,
-  handler: async (_ctx, args): Promise<SendResult> => {
-    const key = process.env.AUTH_RESEND_KEY;
-    if (!key) return { sent: false, reason: "no-key" };
-
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: process.env.AUTH_EMAIL_FROM ?? "App <onboarding@resend.dev>",
-          to: [args.to],
-          subject: args.subject,
-          html: args.html,
-        }),
-      });
-      if (!res.ok) return { sent: false, reason: `resend-${res.status}` };
-      const data = (await res.json()) as { id?: string };
-      return { sent: true, id: data.id };
-    } catch {
-      return { sent: false, reason: "network" };
-    }
-  },
+  handler: async (_ctx, args): Promise<SendResult> => sendViaResend(args),
 });
 
 /** Whether transactional email is configured — lets the UI hide email fields. */

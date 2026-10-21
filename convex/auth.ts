@@ -5,11 +5,14 @@ import { convexAuth } from "@convex-dev/auth/server";
 import { DataModel } from "./_generated/dataModel";
 import { ConvexError } from "convex/values";
 import createOrUpdateUser from "./authGate";
+import { PasswordResetCode } from "./passwordReset";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     // —— Password with GATED profile() (a thrown ConvexError reaches the client) ——
     Password<DataModel>({
+      // "Forgot your password?" — emails a reset code (needs AUTH_RESEND_KEY).
+      reset: PasswordResetCode,
       profile(params, _ctx) {
         const email = (params.email as string)?.toLowerCase().trim();
         if (!email) throw new ConvexError("Email is required.");

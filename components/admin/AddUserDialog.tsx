@@ -81,8 +81,8 @@ export function AddUserDialog() {
               required
             />
             <p className="text-xs text-muted-foreground">
-              At least 8 characters. Share it with the new user — they can change it later via
-              &ldquo;Forgot your password?&rdquo;.
+              At least 8 characters. Share it with the new user - they can change it in
+              Settings after signing in.
             </p>
           </div>
           <DialogFooter>
