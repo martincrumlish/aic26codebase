@@ -4,7 +4,7 @@
 "use client";
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { ConvexError } from "convex/values";
+import { authErrorMessage } from "@/lib/authError";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +24,7 @@ export function EmailCodeStep({ email, onDone }: { email: string; onDone: () => 
       await signIn("password", fd);
       onDone();
     } catch (err) {
-      toast.error(err instanceof ConvexError ? (err.data as string) : "That code didn't work.");
+      toast.error(authErrorMessage(err) ?? "That code didn't work.");
     } finally {
       setSubmitting(false);
     }

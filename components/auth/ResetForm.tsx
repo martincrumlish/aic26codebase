@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { ConvexError } from "convex/values";
+import { authErrorMessage } from "@/lib/authError";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
@@ -26,11 +26,12 @@ export function ResetForm() {
     try {
       await signIn("password", fd);
     } catch (err) {
-      // A ConvexError is a deliberate, user-facing explanation (e.g. email
-      // isn't set up). Anything else — including "no such account" — is
-      // treated as success so the form never reveals which emails exist.
-      if (err instanceof ConvexError) {
-        toast.error(err.data as string);
+      // A deliberate, user-facing message (e.g. email isn't set up) is shown.
+      // Anything else, including "no such account", is treated as success so
+      // the form never reveals which emails exist.
+      const message = authErrorMessage(err);
+      if (message) {
+        toast.error(message);
         setSubmitting(false);
         return;
       }
@@ -51,7 +52,7 @@ export function ResetForm() {
       toast.success("Password updated. You are signed in.");
       window.location.href = "/dashboard";
     } catch (err) {
-      toast.error(err instanceof ConvexError ? (err.data as string) : "Invalid or expired code.");
+      toast.error(authErrorMessage(err) ?? "Invalid or expired code.");
     } finally {
       setSubmitting(false);
     }

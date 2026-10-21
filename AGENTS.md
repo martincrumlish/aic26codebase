@@ -10,6 +10,7 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 
 - `npm run dev` - run the app (needs `.env.local`; run `npm run setup` once first)
 - `npm run test:run` - all tests; `npm run test:convex` / `npm run test:ui` for one half
+- `npm run test:e2e` - browser tests (`e2e/`, Playwright) against the running app; `E2E_BASE_URL` to target another address (never production). Auth calls go through the Next.js `/api/auth` route, which turns ConvexErrors into plain Errors: read messages with `authErrorMessage` (`lib/authError.ts`), not `err instanceof ConvexError`
 - `npx tsc --noEmit` - typecheck. Delete `.next/types` and `.next/dev/types` first if they exist, and never pipe the output (pipes hide the exit code)
 - `npx convex dev --once` - push backend changes to the dev deployment and regenerate `convex/_generated`
 

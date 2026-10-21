@@ -53,7 +53,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 302 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 307 passing tests: backend (convex-test) + React components (Testing Library), plus browser tests (Playwright) for the main journeys, and GitHub Actions running the checks on every push |
 
 ## Services and stack
 
@@ -401,11 +401,16 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (302 tests)
+npm run test:run       # everything (307 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
+npm run test:e2e       # browser tests against the running app (see below)
 ```
+
+**Browser tests** (`e2e/`, Playwright) drive the real app in Chromium: the public pages, sign-up, a project's whole life (create, edit, delete), Settings, the chat page, the hand-off to Stripe Checkout, and sign-out. They run against `http://localhost:3000` (reusing `npm run dev` if it's running, or starting it), or any address in `E2E_BASE_URL`. They create real accounts, so point them at a dev or staging deployment, never production. Tests that need something this deployment doesn't have (open sign-up, Stripe) skip themselves and say why. First time: `npx playwright install chromium`.
+
+**On every push**, GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, the 307 tests and a production build. To also run the browser tests there, add a repository variable `E2E_BASE_URL` pointing at your staging site (GitHub: Settings > Secrets and variables > Actions > Variables).
 
 Patterns worth copying:
 
@@ -475,6 +480,8 @@ lib/brand.server.ts    # the brand for the current request (server only)
 lib/security/headers.ts # security response headers
 middleware.ts          # route protection
 scripts/               # `npm run setup`, `setup:stripe`, `setup:google`
+e2e/                   # browser tests (`npm run test:e2e`)
+.github/workflows/     # CI: typecheck, tests and build on every push
 docs/google-sign-in.md # step-by-step Google sign-in setup
 ```
 

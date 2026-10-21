@@ -19,6 +19,8 @@ const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: vi.fn() }),
 }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast }));
 
 import { SignInForm } from "./SignInForm";
 
@@ -55,6 +57,15 @@ describe("SignInForm", () => {
     render(<SignInForm />);
     await fillAndSubmit("wrongpassword");
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  test("shows the server's message, even when it comes through the /api/auth route as plain text", async () => {
+    signIn.mockRejectedValueOnce(
+      new Error("[Request ID: abc] Server Error\nUncaught ConvexError: Invalid email or password."),
+    );
+    render(<SignInForm />);
+    await fillAndSubmit("wrongpassword");
+    expect(toast.error).toHaveBeenCalledWith("Invalid email or password.");
   });
 
   test("shows the code step when the account still needs to confirm its email", async () => {

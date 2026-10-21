@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
+import { authErrorMessage } from "@/lib/authError";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
@@ -40,9 +40,7 @@ export function SignInForm({ googleReturn = false }: { googleReturn?: boolean })
         router.push("/dashboard");
       }
     } catch (err) {
-      const msg =
-        err instanceof ConvexError ? (err.data as string) : "Sign-in failed.";
-      toast.error(msg);
+      toast.error(authErrorMessage(err) ?? "Sign-in failed.");
     } finally {
       setSubmitting(false);
     }

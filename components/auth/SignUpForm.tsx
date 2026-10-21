@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { ConvexError } from "convex/values";
+import { authErrorMessage } from "@/lib/authError";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,7 @@ export function SignUpForm() {
         router.push("/dashboard");
       }
     } catch (err) {
-      toast.error(err instanceof ConvexError ? (err.data as string) : "Could not create your account.");
+      toast.error(authErrorMessage(err) ?? "Could not create your account.");
     } finally {
       setSubmitting(false);
     }

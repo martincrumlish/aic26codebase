@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { goTo } from "@/lib/navigate";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useTheme } from "next-themes";
 import { SettingsIcon, LogOutIcon, ChevronUpIcon, MoonIcon, SunIcon } from "lucide-react";
@@ -37,7 +37,6 @@ interface AccountMenuProps {
  */
 export function AccountMenu({ email, name }: AccountMenuProps) {
   const { signOut } = useAuthActions();
-  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -46,7 +45,11 @@ export function AccountMenu({ email, name }: AccountMenuProps) {
 
   async function handleSignOut() {
     await signOut();
-    router.push("/signin");
+    // A full page load, not router.push: signing out also triggers Convex
+    // Auth's own server refresh, and a client-side navigation racing it can
+    // leave you looking at the old page. Loading /signin fresh also drops
+    // everything the old session had in memory.
+    goTo("/signin");
   }
 
   return (

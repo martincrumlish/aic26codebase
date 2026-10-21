@@ -1,0 +1,63 @@
+# .github/workflows/ci.yml — checks every push and pull request.
+#
+# check: typecheck, the unit and backend tests (no real services needed), and
+#   a production build.
+# e2e:   browser tests (e2e/) against a running copy of the app, e.g. your
+#   staging site. Off until you set a repository variable E2E_BASE_URL
+#   (Settings > Secrets and variables > Actions > Variables). They create real
+#   accounts, so never point them at production.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Tests
+        run: npm run test:run
+      - name: Build
+        run: npx next build
+        env:
+          # Every page renders on demand, so the build doesn't call Convex;
+          # it only needs addresses to compile against.
+          NEXT_PUBLIC_CONVEX_URL: https://placeholder-123.convex.cloud
+          NEXT_PUBLIC_CONVEX_SITE_URL: https://placeholder-123.convex.site
+
+  e2e:
+    needs: check
+    if: ${{ vars.E2E_BASE_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Browser tests
+        run: npm run test:e2e
+        env:
+          E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

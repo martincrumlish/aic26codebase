@@ -13,7 +13,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:convex": "vitest --project convex run",
-    "test:ui": "vitest --project ui run"
+    "test:ui": "vitest --project ui run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/core": "0.41.1",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { ConvexError } from "convex/values";
+import { authErrorMessage } from "@/lib/authError";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
@@ -45,7 +45,7 @@ export function ActivateForm({ token }: { token: string }) {
         window.location.href = "/dashboard";
       }
     } catch (err) {
-      toast.error(err instanceof ConvexError ? (err.data as string) : "Activation failed.");
+      toast.error(authErrorMessage(err) ?? "Activation failed.");
     } finally {
       setSubmitting(false);
     }
