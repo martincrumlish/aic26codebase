@@ -32,6 +32,8 @@ const isPublicRoute = createRouteMatcher([
   "/join(.*)",
   "/activate(.*)",
   "/reset(.*)",
+  "/pricing(.*)",
+  "/welcome(.*)",
 ]);
 
 function req(path: string) {
@@ -56,6 +58,8 @@ describe("middleware route classification", () => {
       "/join/tok",
       "/activate/tok",
       "/reset",
+      "/pricing",
+      "/welcome",
     ]) {
       expect(isPublicRoute(req(p))).toBeTruthy();
       expect(isProtectedRoute(req(p))).toBeFalsy();

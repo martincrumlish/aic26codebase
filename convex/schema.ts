@@ -41,7 +41,24 @@ export default defineSchema({
     revoked: v.boolean(),
     purpose: v.union(v.literal("signup"), v.literal("activation")),
     createdAt: v.number(),
-  }).index("by_token", ["token"]),
+    // Set when a guest checkout created this account (see billing.ts).
+    checkoutSessionId: v.optional(v.string()),
+  })
+    .index("by_token", ["token"])
+    .index("by_checkout_session", ["checkoutSessionId"]),
+
+  // Which Stripe customer(s) belong to which user. The plan is decided from
+  // these customers' subscriptions (synced by the Stripe component's webhook),
+  // which works whatever order Stripe's events arrive in.
+  billingAccounts: defineTable({
+    userId: v.id("users"),
+    stripeCustomerId: v.string(),
+    // Set when the account came from a guest ("pay first") checkout.
+    checkoutSessionId: v.optional(v.string()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_customer", ["stripeCustomerId"])
+    .index("by_checkout_session", ["checkoutSessionId"]),
 
   // BYOK AI provider keys. Write-only from the client: the raw `key` is never
   // returned by any public query — clients only ever see `last4` (getAiStatus).

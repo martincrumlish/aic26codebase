@@ -19,6 +19,8 @@ const isPublicRoute = createRouteMatcher([
   "/join(.*)",
   "/activate(.*)",
   "/reset(.*)",
+  "/pricing(.*)",
+  "/welcome(.*)",
 ]);
 
 const isSignInPage = createRouteMatcher(["/signin(.*)", "/signup(.*)"]);

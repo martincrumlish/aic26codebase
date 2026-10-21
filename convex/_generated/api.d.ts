@@ -13,12 +13,17 @@ import type * as admin from "../admin.js";
 import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as authGate from "../authGate.js";
+import type * as billing from "../billing.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
 import type * as lib_authMessages from "../lib/authMessages.js";
 import type * as lib_emailCode from "../lib/emailCode.js";
+import type * as lib_plan from "../lib/plan.js";
+import type * as lib_plans from "../lib/plans.js";
 import type * as lib_resend from "../lib/resend.js";
 import type * as lib_signupMode from "../lib/signupMode.js";
+import type * as lib_stripeConfig from "../lib/stripeConfig.js";
+import type * as lib_tokens from "../lib/tokens.js";
 import type * as password from "../password.js";
 import type * as passwordReset from "../passwordReset.js";
 import type * as provisionHttp from "../provisionHttp.js";
@@ -39,12 +44,17 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   auth: typeof auth;
   authGate: typeof authGate;
+  billing: typeof billing;
   email: typeof email;
   http: typeof http;
   "lib/authMessages": typeof lib_authMessages;
   "lib/emailCode": typeof lib_emailCode;
+  "lib/plan": typeof lib_plan;
+  "lib/plans": typeof lib_plans;
   "lib/resend": typeof lib_resend;
   "lib/signupMode": typeof lib_signupMode;
+  "lib/stripeConfig": typeof lib_stripeConfig;
+  "lib/tokens": typeof lib_tokens;
   password: typeof password;
   passwordReset: typeof passwordReset;
   provisionHttp: typeof provisionHttp;
@@ -80,4 +90,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  stripe: import("@convex-dev/stripe/_generated/component.js").ComponentApi<"stripe">;
+};

@@ -12,11 +12,15 @@ export default defineConfig({
       {
         // Convex backend tests — convex-test needs the edge runtime.
         extends: true,
+        // Resolve packages the way Convex's runtime does ("worker" builds), so
+        // e.g. the Stripe SDK uses fetch, which tests can fake.
+        resolve: { conditions: ["worker"] },
+        ssr: { resolve: { conditions: ["worker"] } },
         test: {
           name: "convex",
           environment: "edge-runtime",
           include: ["convex/**/*.test.ts"],
-          server: { deps: { inline: ["convex-test"] } },
+          server: { deps: { inline: ["convex-test", "@convex-dev/stripe", "stripe"] } },
         },
       },
       {

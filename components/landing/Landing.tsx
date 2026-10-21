@@ -9,6 +9,11 @@ import { cn } from "@/lib/utils";
 export function Landing({ signupOpen }: { signupOpen: boolean }) {
   return (
     <main className="flex min-h-dvh flex-col bg-background text-foreground">
+      <header className="mx-auto flex w-full max-w-4xl justify-end px-6 py-5">
+        <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground">
+          Pricing
+        </Link>
+      </header>
       <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">{siteConfig.name}</h1>
         <p className="mt-4 text-lg text-muted-foreground">{siteConfig.description}</p>

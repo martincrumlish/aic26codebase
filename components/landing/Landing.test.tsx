@@ -13,6 +13,11 @@ describe("Landing", () => {
     expect(screen.queryByRole("link", { name: /get started/i })).not.toBeInTheDocument();
   });
 
+  test("links to the pricing page", () => {
+    render(<Landing signupOpen />);
+    expect(screen.getByRole("link", { name: /pricing/i })).toHaveAttribute("href", "/pricing");
+  });
+
   test("when sign-up is open, also offers Get started", () => {
     render(<Landing signupOpen />);
     expect(screen.getByRole("link", { name: /get started/i })).toHaveAttribute("href", "/signup");

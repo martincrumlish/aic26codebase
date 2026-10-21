@@ -18,6 +18,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
   - [Roles: admin and user](#roles-admin-and-user)
   - [Auth flows](#auth-flows)
   - [The admin console](#the-admin-console)
+  - [Billing (Stripe)](#billing-stripe)
   - [Provisioning webhook](#provisioning-webhook)
   - [Email](#email)
   - [BYOK AI (OpenRouter)](#byok-ai-openrouter)
@@ -40,6 +41,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Auth gating** | `convex/authGate.ts` - signup only works with a valid signup link or a pre-created account, and fails closed otherwise; revoked users are locked out everywhere |
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
 | **Admin console** (`/admin`) | Stats; a users table (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
+| **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
 | **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from your payment platform or any other system |
 | **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
 | **BYOK AI** | Per-user OpenRouter API keys, verified before saving, stored write-only (the browser only ever sees the last 4 characters), with an optional app-wide fallback key |
@@ -47,7 +49,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | Intentionally a placeholder - it shows the loading-skeleton pattern and is where your product goes |
 | **Settings** | Profile, password change, AI key management |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 141 passing tests: backend (convex-test) + React components (Testing Library) |
+| **Tests** | 176 passing tests: backend (convex-test) + React components (Testing Library) |
 
 ## Services and stack
 
@@ -194,9 +196,33 @@ Both modes support all of the flows below:
 - **Add user account** - creates an account with a password you choose, so the person can sign in immediately.
 - **Provisioning webhook** - the endpoint URL and whether its signing secret is set.
 
+### Billing (Stripe)
+
+Two plans out of the box - **Free** and **Pro** (monthly or yearly) - defined in `convex/lib/plans.ts` (names, features, limits) and `convex/lib/proPrice.json` (prices). Built on Convex's official Stripe component, which verifies Stripe's webhook signatures and keeps customers and subscriptions in sync.
+
+**Set it up in one command** (a free Stripe account in test mode is all you need):
+
+```bash
+npm run setup:stripe
+```
+
+Paste your Stripe **test** secret key (Stripe dashboard: Developers > API keys) and it creates the Pro product and both prices, the webhook endpoint pointing at your Convex backend, and the customer-portal settings, then saves everything on your Convex deployment. Safe to re-run; change a price in `proPrice.json` and re-run to update it. Then try an upgrade at `/pricing` with Stripe's test card `4242 4242 4242 4242` (any future date, any CVC).
+
+What users get:
+- **`/pricing`** (public) - plan cards with a monthly/yearly toggle.
+- **Upgrade** - signed-in users go to Stripe Checkout and come back to Settings on Pro.
+- **Settings > Billing** - current plan, renewal or end date, and **Manage billing**, which opens Stripe's own portal to switch interval, update the card, see invoices, or cancel.
+- **Pay first, account second** - a signed-out visitor can **Buy Pro** straight away. When the payment completes, the webhook creates their account and the page Stripe returns them to (`/welcome`) lets them set a password (the link is emailed too, if email is set up). This is how you sell access in link-only mode. If the email already has an account, Pro is added to it and they're asked to sign in - an activation link is never handed out for an existing account.
+
+For developers:
+- **Gate paid features with `requirePro(ctx)`** from `convex/access.ts` (it works like `requireAdmin`), or read the plan with `getPlan(ctx, userId)` from `convex/lib/plan.ts`. The plan is always decided on the server from the synced subscriptions - never from anything the browser says.
+- `PLANS.free.limits` / `PLANS.pro.limits` hold per-plan limits (the Projects example uses `projects`).
+- Deleting a user from the admin console cancels their Stripe subscriptions, so nobody is billed for a deleted account.
+- **Going live:** in Stripe, switch to live mode and run `npm run setup:stripe -- --prod --convex-site-url https://<your-prod-deployment>.convex.site` with your live secret key.
+
 ### Provisioning webhook
 
-`POST https://<your-deployment>.convex.site/provision` lets another system create users - typically your payment platform's "new sale" webhook.
+For payment platforms other than Stripe. `POST https://<your-deployment>.convex.site/provision` lets another system create users - typically your payment platform's "new sale" webhook.
 
 - **Signature:** HMAC-SHA256 of the raw request body with `PROVISION_WEBHOOK_SECRET`, hex-encoded, in the `x-app-signature` header. Unsigned or wrongly signed requests are rejected, and so is everything if the secret isn't set.
 - **Idempotent:** each event carries an `externalId`; a repeat delivery returns the original result instead of creating a second account.
@@ -276,7 +302,7 @@ Working with an AI coding assistant? `AGENTS.md` (also read by Claude Code via `
 These are the rules the codebase follows - future code (and AI assistants) should too. The same list is in `AGENTS.md`.
 
 - **TDD.** Write the failing test first, watch it fail, implement, watch it pass. Backend tests sit next to their module (`convex/foo.test.ts`), component tests next to their component.
-- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the three that signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, and `signup.mode`.
+- **Access checks first.** Every Convex query, mutation, and action starts with `requireUserId`, `requireUser`, or `requireAdmin` from `convex/access.ts`. Actions have no database access, so they check through an internal query - see `email.assertAdmin` or `admin.passwordTarget`. The only deliberately public functions are the ones signed-out pages need: `provisioning.validateToken`, `passwordReset.available`, `signup.mode`, `billing.enabled`, `billing.guestCheckout`, and `billing.welcome`.
 - **Never link a sign-up to an existing account by email alone.** A pre-created account can only be claimed with its own activation token, which `convex/authGate.ts` checks and uses up. Any new way of pre-creating accounts must issue a token and present it the same way (see `admin.createUserAccount`).
 - **Write-only secrets.** Sensitive values (API keys, passwords) never reach the browser. Public queries return derived facts only (`last4`, booleans); raw values go through `internal*` functions.
 - **Cascade deletes.** New user-owned tables must be added to `deleteUserAccount` in `convex/admin.ts`. Deleting a user should leave nothing behind.
@@ -299,13 +325,14 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 | `SIGNUP_MODE` | optional | `open` (default: anyone can sign up) or `link` (signup links, webhook, and admin-created accounts only) |
 | `PROVISION_WEBHOOK_SECRET` | optional | Signing secret for `POST /provision`. Unset means the webhook rejects everything |
 | `OPENROUTER_API_KEY` | optional | App-wide AI key; users' own keys take priority |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | optional | Billing. Set all four with `npm run setup:stripe` rather than by hand. Unset means paid plans show as not set up yet |
 
 `.env.local` (written by `npx convex dev`, gitignored) holds only the addresses of your dev deployment: `CONVEX_DEPLOYMENT`, `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CONVEX_SITE_URL`.
 
 ## Testing
 
 ```bash
-npm run test:run       # everything (141 tests)
+npm run test:run       # everything (176 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -359,6 +386,8 @@ convex/
   provisionHttp.ts     # POST /provision webhook
   email.ts  lib/resend.ts  # sending email
   ai.ts                # BYOK OpenRouter keys
+  billing.ts           # Stripe: plans, checkout, portal, pay-first purchases
+  lib/plans.ts         # your plans (names, features, limits); prices in lib/proPrice.json
   seed.ts              # first-admin bootstrap
   *.test.ts            # backend tests, next to their modules
 lib/site.ts            # your app's name and description

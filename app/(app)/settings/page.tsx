@@ -1,4 +1,6 @@
 // app/settings/page.tsx
+import { Suspense } from "react";
+import { BillingCard } from "@/components/billing/BillingCard";
 import { AiForm } from "@/components/settings/AiForm";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { SecurityForm } from "@/components/settings/SecurityForm";
@@ -9,7 +11,7 @@ export default function SettingsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Manage your profile and account security.
+          Manage your profile, plan, and account security.
         </p>
       </div>
 
@@ -20,6 +22,19 @@ export default function SettingsPage() {
             Your name and email.
           </p>
           <ProfileForm />
+        </section>
+
+        <hr className="border-border" />
+
+        <section>
+          <h2 className="text-lg font-semibold">Billing</h2>
+          <p className="mb-4 mt-0.5 text-sm text-muted-foreground">
+            Your plan and payments.
+          </p>
+          {/* Suspense: BillingCard reads the URL (?billing=success). */}
+          <Suspense fallback={null}>
+            <BillingCard />
+          </Suspense>
         </section>
 
         <hr className="border-border" />

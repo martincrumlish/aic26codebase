@@ -1,9 +1,10 @@
 // convex/authGate.ts
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { REVOKED, SIGNUP_REJECTED } from "./lib/authMessages";
 import { signupMode } from "./lib/signupMode";
+import { tokenIsUsable } from "./lib/tokens";
 
 type Ctx = MutationCtx;
 type Args = {
@@ -60,7 +61,7 @@ export default async function createOrUpdateUser(
     if (
       !tok ||
       tok.purpose !== "activation" ||
-      !isUsable(tok, now) ||
+      !tokenIsUsable(tok, now) ||
       tok.email?.toLowerCase().trim() !== email
     ) {
       throw new ConvexError(NOT_ENABLED);
@@ -81,7 +82,7 @@ export default async function createOrUpdateUser(
   if (
     tok &&
     tok.purpose === "signup" &&
-    isUsable(tok, now) &&
+    tokenIsUsable(tok, now) &&
     (!tok.email || tok.email.toLowerCase().trim() === email)
   ) {
     const userId = await ctx.db.insert("users", {
@@ -118,10 +119,3 @@ export default async function createOrUpdateUser(
 // used to discover which emails have accounts.
 const NOT_ENABLED = SIGNUP_REJECTED;
 
-function isUsable(tok: Doc<"provisioningTokens">, now: number) {
-  return (
-    !tok.revoked &&
-    (tok.expiresAt === undefined || tok.expiresAt > now) &&
-    (tok.maxUses === undefined || tok.usedCount < tok.maxUses)
-  );
-}

@@ -474,6 +474,17 @@ export const deleteUserAccount = mutation({
     const userId = args.userId;
 
     // ── 1. App-owned data. Add new owner-keyed tables here.
+    const billing = await ctx.db
+      .query("billingAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    await Promise.all(billing.map((b) => ctx.db.delete(b._id)));
+    if (billing.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.billing.cancelSubscriptions, {
+        stripeCustomerIds: billing.map((b) => b.stripeCustomerId),
+      });
+    }
+
     const apiKeys = await ctx.db
       .query("userApiKeys")
       .withIndex("by_user", (q) => q.eq("userId", userId))
