@@ -27,6 +27,7 @@ import { requireUser } from "./access";
 import { resolveOpenRouterKey } from "./lib/aiKey";
 import { countAppMessage } from "./lib/aiUsage";
 import { isAllowedModel } from "./lib/aiModels";
+import { enforce } from "./lib/rateLimits";
 
 // Change this to give the assistant your product's voice and knowledge.
 const SYSTEM_PROMPT = "You are a helpful assistant. Answer clearly and concisely. Use Markdown when it helps.";
@@ -161,6 +162,7 @@ export const send = mutation({
       throw new ConvexError(`Keep messages under ${MAX_MESSAGE.toLocaleString("en-US")} characters.`);
     }
     if (!isAllowedModel(args.model)) throw new ConvexError("That model isn't available.");
+    await enforce(ctx, "chatMessage", user._id);
     const resolved = await resolveOpenRouterKey(ctx, user._id);
     if (resolved.key === null) throw new ConvexError(noKeyMessage(resolved.appKeyNeedsPro));
     // On the app's key, count it against the plan's monthly allowance. (If

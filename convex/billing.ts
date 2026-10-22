@@ -15,6 +15,7 @@ import { requireUser } from "./access";
 import { getBilling } from "./lib/plan";
 import { billingConfigured, intervalOfPrice, proPriceId, siteUrl } from "./lib/stripeConfig";
 import { tokenIsUsable } from "./lib/tokens";
+import { enforce } from "./lib/rateLimits";
 
 const Interval = v.union(v.literal("monthly"), v.literal("yearly"));
 
@@ -80,6 +81,7 @@ export const checkout = action({
     const me: { userId: Id<"users">; email?: string; plan: string; stripeCustomerId: string | null } =
       await ctx.runQuery(internal.billing.me, {});
     if (!billingConfigured()) throw new ConvexError(NOT_CONFIGURED);
+    await enforce(ctx, "checkout", me.userId);
     if (me.plan === "pro") {
       throw new ConvexError("You're already on Pro. Manage your plan from Settings.");
     }
@@ -110,8 +112,9 @@ export const portal = action({
   args: {},
   returns: v.object({ url: v.string() }),
   handler: async (ctx): Promise<{ url: string }> => {
-    const me: { stripeCustomerId: string | null } = await ctx.runQuery(internal.billing.me, {});
+    const me: { userId: Id<"users">; stripeCustomerId: string | null } = await ctx.runQuery(internal.billing.me, {});
     if (!billingConfigured()) throw new ConvexError(NOT_CONFIGURED);
+    await enforce(ctx, "checkout", me.userId);
     if (!me.stripeCustomerId) {
       throw new ConvexError("You don't have a billing account yet, so there's nothing to manage.");
     }
@@ -146,6 +149,7 @@ export const guestCheckout = action({
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args): Promise<{ url: string }> => {
     if (!billingConfigured()) throw new ConvexError(NOT_CONFIGURED);
+    await enforce(ctx, "guestCheckout");
     const { url } = await stripe.createCheckoutSession(ctx, {
       priceId: proPriceId(args.interval),
       mode: "subscription",

@@ -13,6 +13,7 @@ import { requireUser, requireUserId } from "./access";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { resolveOpenRouterKey } from "./lib/aiKey";
 import { messagesThisMonth, periodEnd } from "./lib/aiUsage";
+import { enforce } from "./lib/rateLimits";
 
 // setOpenRouterKey is an ACTION because it validates the key with a live
 // request to OpenRouter before saving (fetch is not available in mutations).
@@ -25,6 +26,8 @@ export const setOpenRouterKey = action({
 
     const key = args.key.trim();
     if (key.length < 8) throw new ConvexError("That doesn't look like an OpenRouter key.");
+    // Each check is a live call to OpenRouter, so it can't become a free key-tester.
+    await enforce(ctx, "aiKeyCheck", userId);
 
     // /api/v1/key is the authenticated key-info endpoint — a bad key gets 401.
     // (/api/v1/models is public and returns 200 without auth, so it cannot

@@ -27,6 +27,7 @@ import type * as lib_emailCode from "../lib/emailCode.js";
 import type * as lib_googleConnect from "../lib/googleConnect.js";
 import type * as lib_plan from "../lib/plan.js";
 import type * as lib_plans from "../lib/plans.js";
+import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_resend from "../lib/resend.js";
 import type * as lib_signupMode from "../lib/signupMode.js";
 import type * as lib_stripeConfig from "../lib/stripeConfig.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   "lib/googleConnect": typeof lib_googleConnect;
   "lib/plan": typeof lib_plan;
   "lib/plans": typeof lib_plans;
+  "lib/rateLimits": typeof lib_rateLimits;
   "lib/resend": typeof lib_resend;
   "lib/signupMode": typeof lib_signupMode;
   "lib/stripeConfig": typeof lib_stripeConfig;
@@ -108,4 +110,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   stripe: import("@convex-dev/stripe/_generated/component.js").ComponentApi<"stripe">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

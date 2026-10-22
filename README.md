@@ -22,6 +22,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
   - [The Projects example](#the-projects-example)
   - [Provisioning webhook](#provisioning-webhook)
   - [Email](#email)
+  - [Rate limits](#rate-limits)
   - [AI chat and keys (OpenRouter)](#ai-chat-and-keys-openrouter)
 - [Using this as the base for a new project](#using-this-as-the-base-for-a-new-project)
 - [Project conventions](#project-conventions)
@@ -52,8 +53,8 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Projects example** (`/projects`) | A complete worked feature to copy: paginated list, detail page, edit, file upload to Convex storage, delete, owner checks, and a Free-plan limit (3 projects) with an upgrade prompt |
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
-| **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), no secrets stored in the database |
-| **Tests** | 307 passing tests: backend (convex-test) + React components (Testing Library), plus browser tests (Playwright) for the main journeys, and GitHub Actions running the checks on every push |
+| **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), rate limits on AI messages, key checks, checkout and emailed codes (`convex/lib/rateLimits.ts`), no secrets stored in the database |
+| **Tests** | 314 passing tests: backend (convex-test) + React components (Testing Library), plus browser tests (Playwright) for the main journeys, and GitHub Actions running the checks on every push |
 
 ## Services and stack
 
@@ -269,6 +270,22 @@ Set the secret with:
 npx convex env set PROVISION_WEBHOOK_SECRET <random-string>
 ```
 
+### Rate limits
+
+`convex/lib/rateLimits.ts` limits how fast anyone can repeat the things that cost you money or send email, using Convex's official rate-limiter component:
+
+| What | Limit | Over the limit |
+|---|---|---|
+| AI chat messages | 20 a minute per user | "You're sending messages too quickly. Try again in N seconds." |
+| Checking an OpenRouter key | 5 per 10 minutes per user | "Too many key checks..." (stops your backend being used as a free key-tester) |
+| Starting Checkout or opening the billing portal | 10 an hour per user | "Too many checkout attempts..." |
+| Signed-out checkout | 60 a minute across the app | "Checkout is busy right now..." |
+| Password reset and email confirmation codes | 5 an hour per email address | The code is quietly not sent, so the response never reveals whether the address has an account |
+
+Convex Auth already limits wrong passwords (10 an hour per account) and wrong emailed codes, and signup and activation links are random UUIDs, too long to guess. Convex functions don't see IP addresses, so per-visitor limits (for example on bot sign-ups) belong in front of the site: Vercel's firewall, or a CAPTCHA on the sign-up form.
+
+To change a limit, edit `LIMITS`. To limit something new, add an entry with its message and call `enforce(ctx, "name", userId)` right after the access check (see `chat.send`). Backend tests that call a limited function need `registerRateLimiter(t)` from `vitest/rateLimiter.ts`.
+
 ### Email
 
 Email is optional. With `AUTH_RESEND_KEY` unset, the app works normally: the invite-email checkbox is hidden, and the reset page explains that email isn't set up.
@@ -401,7 +418,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (307 tests)
+npm run test:run       # everything (314 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -410,7 +427,7 @@ npm run test:e2e       # browser tests against the running app (see below)
 
 **Browser tests** (`e2e/`, Playwright) drive the real app in Chromium: the public pages, sign-up, a project's whole life (create, edit, delete), Settings, the chat page, the hand-off to Stripe Checkout, and sign-out. They run against `http://localhost:3000` (reusing `npm run dev` if it's running, or starting it), or any address in `E2E_BASE_URL`. They create real accounts, so point them at a dev or staging deployment, never production. Tests that need something this deployment doesn't have (open sign-up, Stripe) skip themselves and say why. First time: `npx playwright install chromium`.
 
-**On every push**, GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, the 307 tests and a production build. To also run the browser tests there, add a repository variable `E2E_BASE_URL` pointing at your staging site (GitHub: Settings > Secrets and variables > Actions > Variables).
+**On every push**, GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, the 314 tests and a production build. To also run the browser tests there, add a repository variable `E2E_BASE_URL` pointing at your staging site (GitHub: Settings > Secrets and variables > Actions > Variables).
 
 Patterns worth copying:
 
@@ -468,6 +485,7 @@ convex/
   chat.ts              # AI chat: conversations, streamed replies
   lib/aiKey.ts         # which key pays for a user's AI calls
   lib/aiModels.ts      # the models the chat offers
+  lib/rateLimits.ts    # how fast people can repeat costly things
   billing.ts           # Stripe: plans, checkout, portal, pay-first purchases
   branding.ts          # Admin > Branding: name, colours, logo, artwork
   projects.ts          # the example feature - copy this to build your own

@@ -7,6 +7,7 @@ import schema from "./schema";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { makePro, registerStripe, stubStripeApi, stubStripeEnv } from "../vitest/stripe";
+import { registerRateLimiter } from "../vitest/rateLimiter";
 import { DEFAULT_MODEL } from "./lib/aiModels";
 import { PLANS } from "./lib/plans";
 import { currentPeriod } from "./lib/aiUsage";
@@ -18,6 +19,7 @@ const LIMIT = PLANS.pro.limits.appAiMessagesPerMonth;
 function setupT() {
   const t = convexTest(schema, modules);
   registerStripe(t);
+  registerRateLimiter(t);
   return t;
 }
 

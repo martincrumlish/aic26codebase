@@ -4,12 +4,14 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import { makePro, registerStripe, stubStripeApi, stubStripeEnv } from "../vitest/stripe";
+import { registerRateLimiter } from "../vitest/rateLimiter";
 
 const modules = import.meta.glob("./**/*.ts");
 
 function convexTest(s: typeof schema, m: typeof modules) {
   const t = baseConvexTest(s, m);
   registerStripe(t);
+  registerRateLimiter(t);
   return t;
 }
 

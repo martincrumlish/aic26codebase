@@ -8,7 +8,9 @@
 // plain error; Convex redacts plain error messages in production, so a caller
 // can't tell "account exists" from "no such account".
 import { Email } from "@convex-dev/auth/providers/Email";
+import type { ActionCtx } from "../_generated/server";
 import { sendViaResend } from "./resend";
+import { mayEmailCode } from "./rateLimits";
 
 const CODE_LENGTH = 8;
 export const CODE_TTL_MINUTES = 15;
@@ -45,7 +47,14 @@ export function emailCodeProvider(id: string, message: CodeEmail) {
     id,
     maxAge: 60 * CODE_TTL_MINUTES,
     generateVerificationToken: async () => generateCode(),
-    sendVerificationRequest: async ({ identifier, token }) => sendCode(identifier, token, message),
+    // Convex Auth passes the action ctx as a second argument (untyped).
+    sendVerificationRequest: async ({ identifier, token }, ...rest: unknown[]) => {
+      const ctx = rest[0] as ActionCtx;
+      if (!process.env.AUTH_RESEND_KEY) return sendCode(identifier, token, message); // explains the setup
+      // Over the limit: skip quietly, so the response looks like any other.
+      if (!(await mayEmailCode(ctx, identifier))) return;
+      return sendCode(identifier, token, message);
+    },
   });
 }
 

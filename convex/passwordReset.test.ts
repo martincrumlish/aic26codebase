@@ -1,5 +1,6 @@
 // convex/passwordReset.test.ts — "Forgot your password?" via an emailed code.
-import { convexTest } from "convex-test";
+import { convexTest as baseConvexTest } from "convex-test";
+import { registerRateLimiter } from "../vitest/rateLimiter";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ConvexError } from "convex/values";
 import schema from "./schema";
@@ -8,6 +9,13 @@ import { generateResetCode, sendResetCode } from "./passwordReset";
 import { stubAuthEnv } from "../vitest/authEnv";
 
 const modules = import.meta.glob("./**/*.ts");
+
+// Every test backend here needs the rate limiter (emailed codes are limited).
+function convexTest(s: typeof schema, m: typeof modules) {
+  const t = baseConvexTest(s, m);
+  registerRateLimiter(t);
+  return t;
+}
 
 /** Stub Resend; returns the list of codes that were "emailed". */
 function stubResend() {

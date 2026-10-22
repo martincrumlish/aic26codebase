@@ -13,6 +13,7 @@ import {
   subscriptionObject,
   STRIPE_ENV,
 } from "../vitest/stripe";
+import { registerRateLimiter } from "../vitest/rateLimiter";
 
 const modules = import.meta.glob("./**/*.ts");
 type T = TestConvex<typeof schema>;
@@ -20,6 +21,7 @@ type T = TestConvex<typeof schema>;
 function setupT() {
   const t = convexTest(schema, modules);
   registerStripe(t);
+  registerRateLimiter(t);
   return t;
 }
 

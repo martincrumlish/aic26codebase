@@ -1,12 +1,20 @@
 // convex/openSignup.test.ts — open sign-up (the default), link-only mode, and
 // email confirmation when email is set up. Drives the real auth:signIn action.
-import { convexTest, type TestConvex } from "convex-test";
+import { convexTest as baseConvexTest, type TestConvex } from "convex-test";
+import { registerRateLimiter } from "../vitest/rateLimiter";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
 import { stubAuthEnv } from "../vitest/authEnv";
 
 const modules = import.meta.glob("./**/*.ts");
+
+// Every test backend here needs the rate limiter (emailed codes are limited).
+function convexTest(s: typeof schema, m: typeof modules) {
+  const t = baseConvexTest(s, m);
+  registerRateLimiter(t);
+  return t;
+}
 type T = TestConvex<typeof schema>;
 
 beforeEach(stubAuthEnv);
