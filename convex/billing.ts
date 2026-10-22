@@ -13,7 +13,8 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { requireUser } from "./access";
 import { getBilling } from "./lib/plan";
-import { billingConfigured, intervalOfPrice, proPriceId, siteUrl } from "./lib/stripeConfig";
+import { billingConfigured, createProCheckout, intervalOfPrice, siteUrl } from "./lib/stripeConfig";
+import { PLANS } from "./lib/plans";
 import { tokenIsUsable } from "./lib/tokens";
 import { enforce } from "./lib/rateLimits";
 
@@ -39,12 +40,15 @@ export const status = query({
     billingEnabled: v.boolean(),
     hasBillingAccount: v.boolean(),
     interval: v.optional(Interval),
-    renewsAt: v.optional(v.number()), // ms since epoch
+    renewsAt: v.optional(v.number()), // ms since epoch (while trialing: when the trial ends)
     cancelAtPeriodEnd: v.optional(v.boolean()),
+    trialing: v.optional(v.boolean()),
+    // Days of free trial an upgrade would start with (0: none, or used already).
+    trialDays: v.number(),
   }),
   handler: async (ctx) => {
     const user = await requireUser(ctx);
-    const { plan, subscription, stripeCustomerId } = await getBilling(ctx, user._id);
+    const { plan, subscription, stripeCustomerId, everSubscribed } = await getBilling(ctx, user._id);
     return {
       plan,
       billingEnabled: billingConfigured(),
@@ -52,6 +56,8 @@ export const status = query({
       interval: subscription ? intervalOfPrice(subscription.priceId) : undefined,
       renewsAt: subscription ? subscription.currentPeriodEnd * 1000 : undefined,
       cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd,
+      trialing: subscription ? subscription.status === "trialing" : undefined,
+      trialDays: plan === "free" && !everSubscribed ? PLANS.pro.trialDays : 0,
     };
   },
 });
@@ -64,11 +70,12 @@ export const me = internalQuery({
     email: v.optional(v.string()),
     plan: v.union(v.literal("free"), v.literal("pro")),
     stripeCustomerId: v.union(v.string(), v.null()),
+    trialEligible: v.boolean(),
   }),
   handler: async (ctx) => {
     const user = await requireUser(ctx);
-    const { plan, stripeCustomerId } = await getBilling(ctx, user._id);
-    return { userId: user._id, email: user.email, plan, stripeCustomerId };
+    const { plan, stripeCustomerId, everSubscribed } = await getBilling(ctx, user._id);
+    return { userId: user._id, email: user.email, plan, stripeCustomerId, trialEligible: !everSubscribed };
   },
 });
 
@@ -78,8 +85,13 @@ export const checkout = action({
   args: { interval: Interval },
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args): Promise<{ url: string }> => {
-    const me: { userId: Id<"users">; email?: string; plan: string; stripeCustomerId: string | null } =
-      await ctx.runQuery(internal.billing.me, {});
+    const me: {
+      userId: Id<"users">;
+      email?: string;
+      plan: string;
+      stripeCustomerId: string | null;
+      trialEligible: boolean;
+    } = await ctx.runQuery(internal.billing.me, {});
     if (!billingConfigured()) throw new ConvexError(NOT_CONFIGURED);
     await enforce(ctx, "checkout", me.userId);
     if (me.plan === "pro") {
@@ -94,16 +106,15 @@ export const checkout = action({
       stripeCustomerId: customerId,
     });
 
-    const { url } = await stripe.createCheckoutSession(ctx, {
-      priceId: proPriceId(args.interval),
+    const url = await createProCheckout({
+      interval: args.interval,
+      trial: me.trialEligible,
       customerId,
-      mode: "subscription",
       successUrl: `${siteUrl()}/settings/billing?billing=success`,
       cancelUrl: `${siteUrl()}/pricing`,
       metadata: { userId: me.userId },
       subscriptionMetadata: { userId: me.userId },
     });
-    if (!url) throw new Error("Stripe didn't return a checkout URL.");
     return { url };
   },
 });
@@ -150,15 +161,17 @@ export const guestCheckout = action({
   handler: async (ctx, args): Promise<{ url: string }> => {
     if (!billingConfigured()) throw new ConvexError(NOT_CONFIGURED);
     await enforce(ctx, "guestCheckout");
-    const { url } = await stripe.createCheckoutSession(ctx, {
-      priceId: proPriceId(args.interval),
-      mode: "subscription",
+    const url = await createProCheckout({
+      interval: args.interval,
+      // A signed-out buyer can't be identified until they've paid, so they
+      // always get the trial. (Someone with an old account buying this way
+      // could get a second one; signed-in upgrades are checked.)
+      trial: true,
       // Stripe fills in {CHECKOUT_SESSION_ID}; /welcome uses it to find the account.
       successUrl: `${siteUrl()}/welcome?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${siteUrl()}/pricing`,
       metadata: { guest: "1" },
     });
-    if (!url) throw new Error("Stripe didn't return a checkout URL.");
     return { url };
   },
 });

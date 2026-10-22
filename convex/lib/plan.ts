@@ -24,16 +24,21 @@ export async function getBilling(ctx: QueryCtx | MutationCtx, userId: Id<"users"
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .take(20);
   let paid: Subscription | null = null;
+  let everSubscribed = false;
   for (const account of accounts) {
     const subs: Subscription[] = await ctx.runQuery(components.stripe.public.listSubscriptions, {
       stripeCustomerId: account.stripeCustomerId,
     });
     paid = subs.find((s) => PAID_STATUSES.has(s.status)) ?? paid;
+    everSubscribed ||= subs.length > 0;
   }
   const plan: PlanId = paid ? "pro" : "free";
   return {
     plan,
     subscription: paid,
+    // Had any subscription, in any state (trials included): "one free trial
+    // per person".
+    everSubscribed,
     // The customer to open the billing portal for: the paying one if any.
     stripeCustomerId: paid?.stripeCustomerId ?? accounts[0]?.stripeCustomerId ?? null,
   };

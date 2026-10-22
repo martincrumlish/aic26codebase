@@ -14,6 +14,7 @@ import {
   STRIPE_ENV,
 } from "../vitest/stripe";
 import { registerRateLimiter } from "../vitest/rateLimiter";
+import { PLANS } from "./lib/plans";
 
 const modules = import.meta.glob("./**/*.ts");
 type T = TestConvex<typeof schema>;
@@ -127,6 +128,65 @@ describe("checkout (signed in)", () => {
     await expect(
       t.withIdentity({ subject: userId }).action(api.billing.checkout, { interval: "monthly" }),
     ).rejects.toThrow(/already on pro/i);
+  });
+});
+
+describe("free trial and promotion codes", () => {
+  const TRIAL = PLANS.pro.trialDays;
+  const sessionOf = (calls: ReturnType<typeof stubStripeApi>) =>
+    calls.find((c) => c.method === "POST" && c.path === "/v1/checkout/sessions")!;
+
+  test("Pro comes with a free trial", () => {
+    expect(TRIAL).toBeGreaterThan(0);
+  });
+
+  test("someone who has never subscribed gets the trial, and can enter a promotion code", async () => {
+    const t = setupT();
+    const calls = stubStripeApi();
+    const userId = await makeUser(t);
+    const status = await t.withIdentity({ subject: userId }).query(api.billing.status, {});
+    expect(status.trialDays).toBe(TRIAL);
+
+    await t.withIdentity({ subject: userId }).action(api.billing.checkout, { interval: "monthly" });
+    const session = sessionOf(calls);
+    expect(session.params.get("subscription_data[trial_period_days]")).toBe(String(TRIAL));
+    expect(session.params.get("allow_promotion_codes")).toBe("true");
+    // Still linked to the user, as before.
+    expect(session.params.get("subscription_data[metadata][userId]")).toBe(userId);
+  });
+
+  test("one trial per person: someone who subscribed before pays from day one (promotion codes still work)", async () => {
+    const t = setupT();
+    const calls = stubStripeApi();
+    const userId = await makeUser(t);
+    await makePro(t, userId, "cus_old", "canceled");
+    const status = await t.withIdentity({ subject: userId }).query(api.billing.status, {});
+    expect(status.trialDays).toBe(0);
+
+    await t.withIdentity({ subject: userId }).action(api.billing.checkout, { interval: "monthly" });
+    const session = sessionOf(calls);
+    expect(session.params.get("subscription_data[trial_period_days]")).toBeNull();
+    expect(session.params.get("allow_promotion_codes")).toBe("true");
+  });
+
+  test("signed-out buyers get the trial and promotion codes too", async () => {
+    const t = setupT();
+    const calls = stubStripeApi();
+    await t.action(api.billing.guestCheckout, { interval: "yearly" });
+    const session = sessionOf(calls);
+    expect(session.params.get("subscription_data[trial_period_days]")).toBe(String(TRIAL));
+    expect(session.params.get("allow_promotion_codes")).toBe("true");
+    expect(session.params.get("line_items[0][price]")).toBe(STRIPE_ENV.STRIPE_PRICE_PRO_YEARLY);
+  });
+
+  test("while trialing they're on Pro, and the status says when the trial ends", async () => {
+    const t = setupT();
+    stubStripeApi();
+    const userId = await makeUser(t);
+    await makePro(t, userId, "cus_trial", "trialing");
+    const status = await t.withIdentity({ subject: userId }).query(api.billing.status, {});
+    expect(status).toMatchObject({ plan: "pro", trialing: true, trialDays: 0 });
+    expect(status.renewsAt).toBeGreaterThan(Date.now());
   });
 });
 

@@ -29,6 +29,13 @@ export const PLANS = {
     limits: { projects: Infinity, appAiKey: true, appAiMessagesPerMonth: 1000 },
     // Amounts in the smallest currency unit (cents).
     price: proPrice,
+    // Free trial at checkout, in days (0 = no trial). One per person: anyone
+    // who has subscribed before pays from day one. Stripe takes their card up
+    // front and charges it when the trial ends unless they cancel.
+    trialDays: 14,
+    // Let buyers enter a promotion code at checkout. Create the codes in the
+    // Stripe dashboard (Product catalog > Coupons).
+    promotionCodes: true,
   },
 } as const;
 

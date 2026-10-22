@@ -71,7 +71,7 @@ export function Overview() {
               billing ? (
                 <span className="flex items-center gap-2">
                   {billing.plan === "pro" ? "Pro" : "Free"}
-                  {billing.plan === "pro" && <Badge>Active</Badge>}
+                  {billing.plan === "pro" && <Badge>{billing.trialing ? "Trial" : "Active"}</Badge>}
                 </span>
               ) : (
                 <Skeleton className="h-8 w-20" />
@@ -79,7 +79,9 @@ export function Overview() {
             }
           >
             {billing?.plan === "free" && billing.billingEnabled ? (
-              <Link href="/pricing" className={linkClass}>Upgrade to Pro</Link>
+              <Link href="/pricing" className={linkClass}>
+                {billing.trialDays > 0 ? `Try Pro free for ${billing.trialDays} days` : "Upgrade to Pro"}
+              </Link>
             ) : billing ? (
               <Link href="/settings/billing" className={linkClass}>Billing settings</Link>
             ) : null}

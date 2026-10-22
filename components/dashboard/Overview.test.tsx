@@ -60,6 +60,20 @@ describe("Overview", () => {
     expect(screen.getByRole("link", { name: /launch email ideas/i })).toHaveAttribute("href", "/chat/c1");
   });
 
+  test("Free with a trial available: the plan card offers it", () => {
+    data["billing:status"] = { plan: "free", billingEnabled: true, trialDays: 14 };
+    render(<Overview />);
+    const plan = screen.getByRole("region", { name: /plan/i });
+    expect(within(plan).getByRole("link", { name: /try pro free for 14 days/i })).toHaveAttribute("href", "/pricing");
+  });
+
+  test("Pro on a free trial: the plan card says Trial", () => {
+    data["billing:status"] = { plan: "pro", billingEnabled: true, trialing: true, trialDays: 0 };
+    render(<Overview />);
+    const plan = screen.getByRole("region", { name: /plan/i });
+    expect(within(plan).getByText("Trial")).toBeInTheDocument();
+  });
+
   test("Pro with the app's key: no upgrade prompt, AI ready, with this month's usage", () => {
     data["billing:status"] = { plan: "pro", billingEnabled: true };
     data["projects:usage"] = { count: 7, limit: null, plan: "pro" };

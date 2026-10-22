@@ -28,6 +28,12 @@ export function PricingPlans() {
   const [busy, setBusy] = useState(false);
 
   const plan = status?.plan;
+  // Signed out we can't know whether they've had a trial, so offer it (the
+  // server decides at checkout for signed-in people; see billing.ts).
+  const trialDays = isAuthenticated ? (status?.trialDays ?? 0) : pro.trialDays;
+  const buyLabel = trialDays > 0 ? `Start ${trialDays}-day free trial` : null;
+  const per = interval === "monthly" ? "month" : "year";
+  const buying = !isAuthenticated || plan === "free";
 
   async function redirectTo(start: () => Promise<{ url: string }>) {
     setBusy(true);
@@ -106,7 +112,7 @@ export function PricingPlans() {
               disabled={!enabled || busy}
               onClick={() => void redirectTo(() => guestCheckout({ interval }))}
             >
-              Buy Pro
+              {buyLabel ?? "Buy Pro"}
             </Button>
           )}
           {plan === "free" && (
@@ -116,8 +122,15 @@ export function PricingPlans() {
               disabled={!enabled || busy}
               onClick={() => void redirectTo(() => checkout({ interval }))}
             >
-              Upgrade to Pro
+              {buyLabel ?? "Upgrade to Pro"}
             </Button>
+          )}
+          {buying && (trialDays > 0 || pro.promotionCodes) && (
+            <p className="text-center text-xs text-muted-foreground">
+              {trialDays > 0 &&
+                `Then ${formatPrice(pro.price[interval], pro.price.currency)}/${per}. Cancel before the trial ends and you won't be charged. `}
+              {pro.promotionCodes && "Have a promotion code? Enter it at checkout."}
+            </p>
           )}
           {plan === "pro" && (
             <>

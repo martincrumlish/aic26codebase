@@ -43,7 +43,7 @@ Next.js 16 (App Router, React 19, TypeScript) + Convex (all backend code in `con
 - Example feature to copy: `convex/projects.ts` + `components/projects/` + `app/(app)/projects/`
 - AI chat: `convex/chat.ts` (system prompt at the top) + `components/chat/`; offered models: `convex/lib/aiModels.ts`; which key pays: `convex/lib/aiKey.ts`. Any new AI feature should get its key from `resolveOpenRouterKey` and only allow models from `aiModels.ts`.
 - Rate limits: `convex/lib/rateLimits.ts`. Anything that costs money, calls an outside API, or sends email gets a limit: add it to `LIMITS` and call `enforce` after the access check. Backend tests that call a limited function need `registerRateLimiter(t)` (`vitest/rateLimiter.ts`)
-- Plans and limits: `convex/lib/plans.ts` (prices in `convex/lib/proPrice.json`); plan lookup: `convex/lib/plan.ts`; billing backend: `convex/billing.ts`
+- Plans and limits: `convex/lib/plans.ts` (prices in `convex/lib/proPrice.json`, free trial length and promotion codes on `PLANS.pro`); plan lookup: `convex/lib/plan.ts`; billing backend: `convex/billing.ts`; new Checkout sessions only through `createProCheckout` (`convex/lib/stripeConfig.ts`), which applies the trial and promotion codes
 - Sidebar nav items: `NAV` in `components/app-shell/AppShell.tsx`; route protection: `middleware.ts`
 - Settings: one page per tab in `app/(app)/settings/<tab>/page.tsx`, listed in `SECTIONS` in `components/settings/SettingsNav.tsx`. Link to a tab directly (e.g. `/settings/ai`), not to `/settings`.
 - Schema: `convex/schema.ts`; access helpers: `convex/access.ts`; admin backend: `convex/admin.ts`

@@ -41,6 +41,8 @@ export function BillingCard() {
   }
 
   const plan = PLANS[status.plan];
+  const trialDays = status.trialDays ?? 0;
+  const proPrice = formatPrice(PLANS.pro.price[status.interval ?? "monthly"], PLANS.pro.price.currency);
   const price =
     status.plan === "pro" && status.interval
       ? `${formatPrice(PLANS.pro.price[status.interval], PLANS.pro.price.currency)} / ${status.interval === "yearly" ? "year" : "month"}`
@@ -53,13 +55,21 @@ export function BillingCard() {
       title="Plan"
       description="Your current plan and what it includes."
       hint={
-        status.plan === "pro" && status.renewsAt ? (
+        status.plan === "pro" && status.renewsAt && status.trialing ? (
+          status.cancelAtPeriodEnd ? (
+            `Your free trial ends on ${formatDate(status.renewsAt)}, and Pro ends with it. You won't be charged.`
+          ) : (
+            `Your free trial ends on ${formatDate(status.renewsAt)}. Your card is charged ${proPrice} then, unless you cancel before.`
+          )
+        ) : status.plan === "pro" && status.renewsAt ? (
           <>
             {status.cancelAtPeriodEnd ? "Your access ends on " : "Renews on "}
             {formatDate(status.renewsAt)}.
           </>
         ) : status.plan === "free" && status.billingEnabled ? (
-          "Upgrade any time. You can cancel whenever you like."
+          trialDays > 0
+            ? `Try Pro free for ${trialDays} days. Cancel any time before it ends and you won't be charged.`
+            : "Upgrade any time. You can cancel whenever you like."
         ) : null
       }
       footer={
@@ -75,7 +85,7 @@ export function BillingCard() {
               </Button>
             )}
             <Link href="/pricing" className={buttonVariants()}>
-              Upgrade to Pro
+              {trialDays > 0 ? `Start ${trialDays}-day free trial` : "Upgrade to Pro"}
             </Link>
           </>
         ) : null
@@ -87,7 +97,7 @@ export function BillingCard() {
             <span className="text-lg font-semibold">{plan.name}</span>
             {status.plan === "pro" && (
               <Badge variant={status.cancelAtPeriodEnd ? "outline" : "default"}>
-                {status.cancelAtPeriodEnd ? "Cancelling" : "Active"}
+                {status.trialing ? "Free trial" : status.cancelAtPeriodEnd ? "Cancelling" : "Active"}
               </Badge>
             )}
           </div>

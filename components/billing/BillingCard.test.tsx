@@ -53,6 +53,33 @@ describe("BillingCard", () => {
     expect(screen.getByText(/ends on/i)).toBeInTheDocument();
   });
 
+  test("Free, never subscribed: offers the free trial", () => {
+    status = { plan: "free", billingEnabled: true, hasBillingAccount: false, trialDays: 14 };
+    render(<BillingCard />);
+    expect(screen.getByRole("link", { name: /start 14-day free trial/i })).toHaveAttribute("href", "/pricing");
+  });
+
+  test("Pro, on a free trial: says when it ends and that the card is charged then", () => {
+    status = {
+      plan: "pro", billingEnabled: true, hasBillingAccount: true,
+      interval: "monthly", renewsAt, cancelAtPeriodEnd: false, trialing: true, trialDays: 0,
+    };
+    render(<BillingCard />);
+    expect(screen.getByText("Free trial")).toBeInTheDocument();
+    expect(screen.getByText(/trial ends on march 15, 2030/i)).toBeInTheDocument();
+    expect(screen.getByText(/charged \$12 then/i)).toBeInTheDocument();
+  });
+
+  test("Pro, trial cancelled: says Pro ends with the trial and nothing is charged", () => {
+    status = {
+      plan: "pro", billingEnabled: true, hasBillingAccount: true,
+      interval: "monthly", renewsAt, cancelAtPeriodEnd: true, trialing: true, trialDays: 0,
+    };
+    render(<BillingCard />);
+    expect(screen.getByText(/trial ends on march 15, 2030/i)).toBeInTheDocument();
+    expect(screen.getByText(/you won't be charged/i)).toBeInTheDocument();
+  });
+
   test("billing not set up: explains instead of offering an upgrade", () => {
     status = { plan: "free", billingEnabled: false, hasBillingAccount: false };
     render(<BillingCard />);

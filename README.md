@@ -44,7 +44,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Roles** | `admin` and `user` on the users table, with `requireUser` / `requireAdmin` helpers in `convex/access.ts` |
 | **Admin console** (`/admin`) | Stats; a users table with search (by name or email) and paging (make/remove admin, set password, revoke/restore, delete with typed confirmation); signup-link generator and list; add-user dialog; webhook settings |
 | **Branding** (`/admin/branding`) | Admins set the app's name, description, brand and button colours, logo and sign-in artwork, with a live preview. Applied to every page, signed in or not, with no redeploy; text colours are picked automatically to stay readable |
-| **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
+| **Billing** | Stripe subscriptions: Free and Pro (monthly/yearly), a `/pricing` page, upgrade via Stripe Checkout with a 14-day free trial (one per person) and promotion codes, Stripe's billing portal, "pay first, account second" for signed-out buyers, and `requirePro` to gate features. `npm run setup:stripe` sets up Stripe in one step |
 | **Provisioning** | `POST /provision` Convex HTTP endpoint - HMAC-SHA256 signed, idempotent - creates users from your payment platform or any other system |
 | **Email** | Optional. One fail-soft module over the Resend API; the app works without it, and features that need it explain or hide themselves |
 | **AI chat** (`/chat`) | Saved conversations with replies that stream in live, Markdown rendering, a model picker (Claude, GPT, Gemini, DeepSeek via OpenRouter), rename and delete |
@@ -54,7 +54,7 @@ This is not a demo. The patterns are the hardened kind: signup that fails closed
 | **Dashboard** | An overview to start from: plan, project usage, AI status, recent projects and conversations. Replace it with your product's main screen |
 | **Settings** | Tabs for Profile, Billing, Sign-in & security (password, Google), and AI key; each tab is its own page, so links and Stripe's return go straight to the right one |
 | **Security** | Route protection, response-header hardening (`lib/security/headers.ts`), rate limits on AI messages, key checks, checkout and emailed codes (`convex/lib/rateLimits.ts`), no secrets stored in the database |
-| **Tests** | 314 passing tests: backend (convex-test) + React components (Testing Library), plus browser tests (Playwright) for the main journeys, and GitHub Actions running the checks on every push |
+| **Tests** | 325 passing tests: backend (convex-test) + React components (Testing Library), plus browser tests (Playwright) for the main journeys, and GitHub Actions running the checks on every push |
 
 ## Services and stack
 
@@ -217,12 +217,15 @@ Paste your Stripe **test** secret key (Stripe dashboard: Developers > API keys) 
 What users get:
 - **`/pricing`** (public) - plan cards with a monthly/yearly toggle.
 - **Upgrade** - signed-in users go to Stripe Checkout and come back to Settings on Pro.
+- **Free trial** - Pro starts with a 14-day free trial for anyone who hasn't subscribed before (an earlier subscription or trial on their account means they pay from day one). Stripe takes the card up front, shows "14 days free" and "Total due today: 0", and charges it when the trial ends unless they cancel. While trialing they're on Pro; Settings > Billing and the dashboard say so, with the date the trial ends. Signed-out buyers always get the trial, since nobody knows who they are until they've paid. Change the length with `trialDays` in `convex/lib/plans.ts` (0 turns trials off).
+- **Promotion codes** - buyers can enter a code on Stripe Checkout. Create codes in the Stripe dashboard (Product catalog > Coupons > add a promotion code); nothing to change in the app. Turn the box off with `promotionCodes: false` in `convex/lib/plans.ts`.
 - **Settings > Billing** - current plan, renewal or end date, and **Manage billing**, which opens Stripe's own portal to switch interval, update the card, see invoices, or cancel.
 - **Pay first, account second** - a signed-out visitor can **Buy Pro** straight away. When the payment completes, the webhook creates their account and the page Stripe returns them to (`/welcome`) lets them set a password (the link is emailed too, if email is set up). This is how you sell access in link-only mode. If the email already has an account, Pro is added to it and they're asked to sign in - an activation link is never handed out for an existing account.
 
 For developers:
 - **Gate paid features with `requirePro(ctx)`** from `convex/access.ts` (it works like `requireAdmin`), or read the plan with `getPlan(ctx, userId)` from `convex/lib/plan.ts`. The plan is always decided on the server from the synced subscriptions - never from anything the browser says.
 - `PLANS.free.limits` / `PLANS.pro.limits` hold per-plan limits (the Projects example uses `projects`).
+- Checkout sessions are created by `createProCheckout` in `convex/lib/stripeConfig.ts` (with Stripe's SDK, since the Stripe component's helper can't set a trial or promotion codes). Everything else - customers, the portal, the webhook - goes through the Stripe component.
 - Deleting a user from the admin console cancels their Stripe subscriptions, so nobody is billed for a deleted account.
 - **Going live:** in Stripe, switch to live mode and run `npm run setup:stripe -- --prod --convex-site-url https://<your-prod-deployment>.convex.site` with your live secret key.
 
@@ -418,7 +421,7 @@ All of these are **Convex deployment env vars** (`npx convex env set NAME value`
 ## Testing
 
 ```bash
-npm run test:run       # everything (314 tests)
+npm run test:run       # everything (325 tests)
 npm run test:convex    # backend only
 npm run test:ui        # components only
 npm run test           # watch mode
@@ -427,7 +430,7 @@ npm run test:e2e       # browser tests against the running app (see below)
 
 **Browser tests** (`e2e/`, Playwright) drive the real app in Chromium: the public pages, sign-up, a project's whole life (create, edit, delete), Settings, the chat page, the hand-off to Stripe Checkout, and sign-out. They run against `http://localhost:3000` (reusing `npm run dev` if it's running, or starting it), or any address in `E2E_BASE_URL`. They create real accounts, so point them at a dev or staging deployment, never production. Tests that need something this deployment doesn't have (open sign-up, Stripe) skip themselves and say why. First time: `npx playwright install chromium`.
 
-**On every push**, GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, the 314 tests and a production build. To also run the browser tests there, add a repository variable `E2E_BASE_URL` pointing at your staging site (GitHub: Settings > Secrets and variables > Actions > Variables).
+**On every push**, GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, the 325 tests and a production build. To also run the browser tests there, add a repository variable `E2E_BASE_URL` pointing at your staging site (GitHub: Settings > Secrets and variables > Actions > Variables).
 
 Patterns worth copying:
 
